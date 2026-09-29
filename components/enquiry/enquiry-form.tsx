@@ -234,12 +234,14 @@ export function EnquiryForm({
       )}
 
       {listed > 0 && (
-        <div className="rounded border border-navy-900 bg-navy-50 p-4">
+        // Secondary, not green: the enquiry bar (phones, tablets) and the aside's
+        // "Open your enquiry list" (desktop) already carry the one green list action.
+        <div className="rounded border border-rule bg-paper p-4">
           <p className="font-semibold text-fg-strong">You have {listedText} in your enquiry list</p>
           <p className="mt-1 text-fg-muted">
             This form doesn’t send them. Review your list and send it as one enquiry.
           </p>
-          <button type="button" className="btn btn-enquire btn-sm mt-3" onClick={() => enquiryList.open()}>
+          <button type="button" className="btn btn-secondary btn-sm mt-3" onClick={() => enquiryList.open()}>
             Review &amp; send your list
             <ArrowRight aria-hidden className="icon-trail" />
           </button>

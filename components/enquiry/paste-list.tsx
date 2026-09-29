@@ -13,7 +13,7 @@ import {
 } from "react";
 import { AlertCircle, Check } from "lucide-react";
 import { useCatalogIndexState, type IndexItem } from "@/lib/catalog-index";
-import { enquiryList, MAX_ITEMS, type AddInput } from "@/lib/enquiry-list";
+import { enquiryList, itemKey, MAX_ITEMS, type AddInput } from "@/lib/enquiry-list";
 import { customId, toAddInput } from "@/lib/enquiry-actions";
 import { norm } from "@/lib/search-text";
 
@@ -301,6 +301,29 @@ function readLine(entries: Entry[], raw: string, split: { name: string; qty?: nu
 }
 
 /**
+ * The pasted text as line fragments (thousands glued, split on newlines, commas and
+ * semicolons, list marks and trailing punctuation stripped), and whether their bare leading
+ * numbers count 1, 2, 3… (list numbering rather than quantities).
+ */
+function splitPaste(text: string): { frags: string[]; numbered: boolean } {
+  const frags = glueThousands(text)
+    .split(/[\n,;]+/)
+    .map((s) => s.replace(LIST_MARK_RE, "").replace(/[\s.!?]+$/, "").trim())
+    .filter(Boolean);
+  const leads = frags.map((f) => LEAD_BARE_RE.exec(f)?.[1]).filter((n): n is string => !!n);
+  return { frags, numbered: leads.length > 0 && leads.every((n, i) => Number(n) === i + 1) };
+}
+
+/**
+ * The fragments past the first MAX_ITEMS, which parsePaste does not read (one enquiry holds
+ * at most MAX_ITEMS lines). List numbering is dropped so they read the same when added later.
+ */
+export function unreadLines(text: string): string[] {
+  const { frags, numbered } = splitPaste(text);
+  return frags.slice(MAX_ITEMS).map((f) => (numbered ? f.replace(LEAD_BARE_RE, "") : f));
+}
+
+/**
  * Split on newlines / commas / semicolons, then match each line to the catalogue.
  * Lines it must read (keep them as parser tests): "Kamagra 100mg x 2,500", "Cenforce 100 x 1,000",
  * "Vidalista 20 - 5,000 boxes", "Cenforce 50 mg, 100 mg", "Cenforce 50,100", "Tadalafil 20mg, 40mg",
@@ -310,14 +333,10 @@ function readLine(entries: Entry[], raw: string, split: { name: string; qty?: nu
  */
 export function parsePaste(text: string, index: IndexItem[]): Parsed[] {
   const entries = prep(index);
-  const frags = glueThousands(text)
-    .split(/[\n,;]+/)
-    .map((s) => s.replace(LIST_MARK_RE, "").replace(/[\s.!?]+$/, "").trim())
-    .filter(Boolean)
-    .slice(0, 100);
-  // Leading numbers that count 1, 2, 3… are list numbering; otherwise they are quantities.
-  const leads = frags.map((f) => LEAD_BARE_RE.exec(f)?.[1]).filter((n): n is string => !!n);
-  const numbered = leads.length > 0 && leads.every((n, i) => Number(n) === i + 1);
+  // Only the first MAX_ITEMS fragments are read (see unreadLines). Leading numbers that
+  // count 1, 2, 3… are list numbering; otherwise they are quantities.
+  const { frags: all, numbered } = splitPaste(text);
+  const frags = all.slice(0, MAX_ITEMS);
   const out: Parsed[] = [];
   for (const frag of frags) {
     const raw = numbered ? frag.replace(LEAD_BARE_RE, "") : frag;
@@ -408,6 +427,28 @@ export function addPasted(inputs: AddInput[]): Added {
 }
 
 /**
+ * The previewed lines the list did not take in the add just made (cut by the MAX_ITEMS cap).
+ * Call it right after addPasted(inputs), with the same lines in the same order. A line with a
+ * strength was taken when that line is listed; one without, when its product is listed.
+ */
+export function leftoverLines(lines: Parsed[], inputs: AddInput[]): Parsed[] {
+  const { items } = enquiryList.getSnapshot();
+  const keys = new Set(items.map((i) => i.key));
+  const meds = new Set(items.map((i) => i.medicineId));
+  return lines.filter((_, k) => {
+    const i = inputs[k];
+    return i.strength ? !keys.has(itemKey(i.medicineId, i.strength)) : !meds.has(i.medicineId);
+  });
+}
+
+/** A previewed line written back as text that parses to the same line ("Cenforce 100 mg x 20"). */
+export const lineText = (p: Parsed): string => (p.qty ? `${p.name} x ${p.qty}` : p.name);
+
+/** "The 20 lines that didn’t fit are still in the box." */
+const stillInBox = (k: number) =>
+  `The ${k === 1 ? "line" : `${k} lines`} that didn’t fit ${k === 1 ? "is" : "are"} still in the box.`;
+
+/**
  * The visible note after an Add, from what the list actually took: "3 lines added to your
  * list", "2 lines added · 2 already in your list", "1 line updated to the packs you pasted",
  * "All 4 lines are already in your list".
@@ -460,7 +501,7 @@ export function PasteList({
   const id = useId();
   const textRef = useRef<HTMLTextAreaElement>(null);
   /** The last Add, for the status line; cleared as soon as the buyer types again. */
-  const [added, setAdded] = useState<Added | null>(null);
+  const [added, setAdded] = useState<(Added & { left: number }) | null>(null);
   // Lines are only classified against a loaded index: while it is loading or
   // unavailable nothing is parsed, so nothing is wrongly sent as a custom request.
   const { index, status, retry } = useCatalogIndexState(open || text.length > 0);
@@ -477,6 +518,8 @@ export function PasteList({
     [parsed, picks],
   );
   const matched = lines.filter((p) => p.match).length;
+  /** Lines past the first MAX_ITEMS: not read now, and kept in the box by an Add. */
+  const unread = useMemo(() => unreadLines(text), [text]);
 
   // Tell the drawer how many previewed lines are not yet in the list.
   useEffect(() => {
@@ -491,10 +534,15 @@ export function PasteList({
    */
   const addLines = (): number => {
     if (status !== "ready" || !lines.length) return 0;
-    const result = addPasted(lines.map(toInput));
-    onText("");
-    onPicks({});
-    setAdded(result);
+    const inputs = lines.map(toInput);
+    const result = addPasted(inputs);
+    // Keep what the list did not take (lines cut by the cap, and lines past the first
+    // MAX_ITEMS that were not read), so nothing pasted is silently lost.
+    const kept = leftoverLines(lines, inputs);
+    onText([...kept.map(lineText), ...unread].join("\n"));
+    const keep = new Set(kept.map((p) => p.name));
+    onPicks((prev) => Object.fromEntries(Object.entries(prev).filter(([name]) => keep.has(name))));
+    setAdded({ ...result, left: kept.length + unread.length });
     return result.n;
   };
 
@@ -574,13 +622,24 @@ export function PasteList({
         </div>
         {/* Visible text only: the store's flash, announced by EnquiryToast through LiveRegion,
             already covers the added, already-listed and updated lines. */}
-        {added && <p className="mt-3 text-sm text-fg-strong">{addedNote(added)}</p>}
+        {added && (
+          <p className="mt-3 text-sm text-fg-strong">
+            {addedNote(added)}
+            {added.left > 0 && ` ${stillInBox(added.left)}`}
+          </p>
+        )}
 
         {lines.length > 0 && (
           <>
             <p className="mt-4 text-sm font-semibold text-fg-strong">
               {matched} of {lines.length} matched
             </p>
+            {unread.length > 0 && (
+              <p className="mt-1 text-sm text-fg-muted">
+                Only the first {MAX_ITEMS} lines are read, the most one enquiry holds. The other {unread.length}{" "}
+                stay in the box for your next enquiry.
+              </p>
+            )}
             <ul className="mt-2 space-y-3">
               {lines.map((p, i) => (
                 <li key={`${i}-${p.raw}`} className="flex items-start gap-2 text-sm">

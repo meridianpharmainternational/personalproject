@@ -103,8 +103,8 @@ export default function ContactPage() {
                 it to the catalogue and you send everything as one enquiry.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <OpenEnquiryButton label="Open your enquiry list" />
-                <OpenEnquiryButton paste label="Paste a product list" showCount={false} className="btn btn-secondary" />
+                <OpenEnquiryButton label="Open your enquiry list" className="btn btn-enquire w-full sm:w-auto" />
+                <OpenEnquiryButton paste label="Paste a product list" showCount={false} className="btn btn-secondary w-full sm:w-auto" />
               </div>
             </section>
 

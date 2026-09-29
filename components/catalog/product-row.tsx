@@ -6,6 +6,7 @@ import { useEnquiryList } from "@/lib/enquiry-list";
 import { AddToEnquiry } from "@/components/enquiry/add-to-enquiry";
 import type { CatalogItem } from "@/lib/catalog";
 import { emphStrength, strengthLine } from "@/components/catalog/catalog-model";
+import { moleculeLabel } from "@/lib/format";
 
 /** Strengths named before the "+N more" remainder (spec §6: at most 3, then +N). */
 const MAX_STRENGTHS = 3;
@@ -37,7 +38,7 @@ export function ProductRow({
   const { items } = useEnquiryList();
   const inList = items.some((i) => i.medicineId === item.id);
   const abbr = (item.form ?? "PRD").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "PRD";
-  const meta = [item.molecule, item.form].filter(Boolean).join(" · ");
+  const meta = [moleculeLabel(item.molecule, item.ester), item.form].filter(Boolean).join(" · ");
   const { shown, more } = strengthLine(item.strengths, emph, MAX_STRENGTHS);
 
   return (

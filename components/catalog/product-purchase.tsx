@@ -118,10 +118,13 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
     }
     const find = (s: string | null) => current.find((c) => c.key === itemKey(product.id, s));
     const fresh = inputs.filter((i) => !find(i.strength));
-    // Only overwrite packs on existing lines when the buyer actually changed the stepper.
-    const stale = qtyDirty
-      ? inputs.map((i) => find(i.strength)).filter((c): c is EnquiryItem => !!c && c.qty !== qty)
-      : [];
+    // The stepper updates listed lines only when this press adds nothing new and
+    // the buyer changed it. Chips stay selected after an Add, so "50 mg × 10, Add;
+    // then 100 mg × 5, Add" must not also turn the listed 50 mg into 5 packs.
+    const stale =
+      qtyDirty && !fresh.length
+        ? inputs.map((i) => find(i.strength)).filter((c): c is EnquiryItem => !!c && c.qty !== qty)
+        : [];
 
     stale.forEach((c) => enquiryList.setQty(c.key, qty));
 
@@ -137,23 +140,36 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
     if (!open && (fresh.length || stale.length)) setJustAdded(true);
   };
 
-  const strengthText = strengths.length
-    ? selected.length
-      ? selected.map(keepTogether).join(", ")
-      : "strength to be advised"
-    : null;
-  const adds = `Adds ${chosen.length} line${chosen.length === 1 ? "" : "s"}: ${[
-    strengthText,
-    keepTogether(`${packs(qty)}${chosen.length > 1 ? " each" : ""}`),
+  // Split the choice by what the list already holds, so the summary names only
+  // what a press will add (or update). When the only listed line is "to be
+  // advised", the chosen strengths take its place (see refine), so all count as new.
+  const refining = selected.length > 0 && lines.length === 1 && lines[0].strength === null;
+  const isListed = (s: string | null) => !refining && lines.some((l) => l.key === itemKey(product.id, s));
+  const toAdd = chosen.filter((s) => !isListed(s));
+  const already = chosen.filter(isListed);
+  /** "50 mg, 100 mg" / "strength to be advised"; null for a product without strengths. */
+  const strengthsText = (list: (string | null)[]) =>
+    strengths.length ? list.map((s) => (s === null ? "strength to be advised" : keepTogether(s))).join(", ") : null;
+  const adds = `Adds ${toAdd.length} line${toAdd.length === 1 ? "" : "s"}: ${[
+    strengthsText(toAdd),
+    keepTogether(`${packs(qty)}${toAdd.length > 1 ? " each" : ""}`),
   ]
     .filter(Boolean)
-    .join(" · ")}`;
+    .join(" · ")}${already.length ? ` · ${strengthsText(already)} already in your list` : ""}`;
+  // Nothing new: a changed stepper updates the listed lines (see submit); otherwise nothing changes.
+  const changes = lines.filter((l) => already.includes(l.strength) && l.qty !== qty);
+  const nothingNew =
+    qtyDirty && changes.length
+      ? `Updates ${strengthsText(changes.map((l) => l.strength)) ?? "this product"} to ${keepTogether(packs(qty))}`
+      : `Already in your list${strengthsText(already) ? `: ${strengthsText(already)}` : ""}`;
   // Adding would change nothing (see vagueListed), so say so instead.
   const summary = vagueListed(selected, lines)
     ? strengths.length
       ? "Already in your list: choose a strength to add another line"
       : "Already in your list"
-    : adds;
+    : toAdd.length
+      ? adds
+      : nothingNew;
 
   const wa = whatsappLink(
     `Hello, I would like pricing and availability for:\n${formatEnquiryItems(

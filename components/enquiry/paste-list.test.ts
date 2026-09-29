@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import type { IndexItem } from "@/lib/catalog-index";
 import { enquiryList } from "@/lib/enquiry-list";
 import { toAddInput } from "@/lib/enquiry-actions";
-import { addPasted, addedNote, parsePaste } from "./paste-list";
+import { addPasted, addedNote, leftoverLines, lineText, parsePaste, unreadLines } from "./paste-list";
 
 type Line = ReturnType<typeof parsePaste>[number];
 
@@ -241,5 +241,43 @@ describe("addPasted: what an Add does to the list", () => {
     assert.equal(list.length, 100);
     assert.deepEqual(list[1], ["Cenforce", "1 mg", 7]);
     assert.deepEqual(list[99], ["IVERHEAL", "12 mg", 1]);
+  });
+});
+
+describe("pasting more than the list can take: nothing is silently lost", () => {
+  beforeEach(() => enquiryList.clear());
+
+  it("reads only the first 100 lines and hands back the rest, with list numbering dropped", () => {
+    const text = Array.from({ length: 130 }, (_, k) => `${k + 1} Custom product ${k}`).join("\n");
+    assert.equal(parse(text).length, 100);
+    const rest = unreadLines(text);
+    assert.equal(rest.length, 30);
+    assert.equal(rest[0], "Custom product 100");
+    assert.deepEqual(unreadLines("Cenforce 100, Vidalista 20"), []);
+  });
+
+  it("keeps the lines the list cap cut, as text that reads back to the same lines", () => {
+    enquiryList.addMany(Array.from({ length: 98 }, (_, k) => toAddInput(INDEX[0], `${k} mg`)));
+    const lines = parse("Vidalista 20 x 5, Kamagra 100 mg x 3, IVERHEAL 12 mg, Tadarise 40 x 2");
+    const inputs = lines.map((p) => toAddInput(p.match!, p.strength, p.qty));
+    const result = addPasted(inputs);
+    assert.equal(result.n, 2);
+    assert.equal(result.cut, 2);
+    const kept = leftoverLines(lines, inputs).map(lineText);
+    assert.deepEqual(
+      kept.map((t) => added(one(t))),
+      [
+        { product: "IVERHEAL", strength: "12 mg", qty: undefined },
+        { product: "Tadarise", strength: "40 mg", qty: 2 },
+      ],
+    );
+  });
+
+  it("keeps nothing when every line was taken or was already listed", () => {
+    enquiryList.add(toAddInput(INDEX[0], "100 mg"));
+    const lines = parse("Cenforce, Vidalista 20 x 5");
+    const inputs = lines.map((p) => toAddInput(p.match!, p.strength, p.qty));
+    addPasted(inputs);
+    assert.deepEqual(leftoverLines(lines, inputs), []);
   });
 });

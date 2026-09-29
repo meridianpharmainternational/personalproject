@@ -5,7 +5,17 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { esterWord, hasAllTokens, hasToken, norm, relaxTokens, relevanceScore, tokenize } from "@/lib/search-text";
+import {
+  categoryTerms,
+  esterWord,
+  hasAllTokens,
+  hasToken,
+  norm,
+  oneEdit,
+  relaxTokens,
+  relevanceScore,
+  tokenize,
+} from "@/lib/search-text";
 
 type Row = { name: string; molecule: string; form: string; strengths: string[]; category: string };
 
@@ -181,5 +191,59 @@ describe("relaxTokens", () => {
       ],
       query: "tadalafil",
     });
+  });
+});
+
+describe("categoryTerms", () => {
+  /** A product haystack as buildUniverse() / prepare() build it, category words included. */
+  const hay = (name: string, molecule: string, category: string, slug: string) =>
+    norm([name, molecule, "Injection", "250 mg/ml", category, categoryTerms(slug)].join(" "));
+  const testE = hay("TEST-E", "Testosterone", "Injectables", "steroid-injections");
+
+  it("finds a whole category by the words buyers use for it", () => {
+    for (const q of ["steroid", "steroids", "anabolic", "anabolic steroids"]) {
+      assert.ok(hasAllTokens(testE, tokenize(q)), q);
+    }
+    assert.ok(hasAllTokens(hay("X", "Tapentadol", "Pain Relief", "painkillers"), tokenize("painkiller")));
+    assert.ok(hasAllTokens(hay("X", "Minoxidil", "Hair Care", "hair-loss"), tokenize("hair loss")));
+  });
+
+  it("adds nothing for a category without extra words", () => {
+    assert.equal(categoryTerms("no-such-category"), "");
+    assert.equal(categoryTerms(null), "");
+  });
+});
+
+describe("relaxTokens: one-edit typos", () => {
+  const HAYS = [
+    "Anastrol Anastrozole Tablets 1 mg Oral Therapies",
+    "Vidalista Tadalafil Tablets 20 mg ED Medicines",
+    "Accufine Isotretinoin Capsules 20 mg Oral Therapies",
+    "Cenforce Sildenafil Citrate Tablets 100 mg ED Medicines",
+    "Fenforce Fenbendazole Tablets 222 mg Anti-Parasitic",
+  ].map(norm);
+
+  it("knows what one edit is", () => {
+    assert.ok(oneEdit("anastrazole", "anastrozole")); // one letter wrong
+    assert.ok(oneEdit("tadalfil", "tadalafil")); // one letter missing
+    assert.ok(oneEdit("isotretinion", "isotretinoin")); // two letters swapped
+    assert.ok(!oneEdit("tadalafil", "tadalafil"));
+    assert.ok(!oneEdit("tadlfil", "tadalafil"));
+  });
+
+  it("corrects a long word that is one edit from exactly one catalogue word", () => {
+    assert.equal(relaxTokens(tokenize("anastrazole"), HAYS)?.query, "anastrozole");
+    assert.equal(relaxTokens(tokenize("tadalfil 20mg"), HAYS)?.query, "tadalafil 20mg");
+    assert.equal(relaxTokens(tokenize("isotretinion"), HAYS)?.query, "isotretinoin");
+  });
+
+  it("leaves an ambiguous typo alone", () => {
+    // "denforce" is one edit from both "cenforce" and "fenforce".
+    assert.equal(relaxTokens(tokenize("denforce"), HAYS), null);
+  });
+
+  it("maps the old spelling of fluoxymesterone to the INN the catalogue uses", () => {
+    const hays = ["Halotestin Fluoxymesterone Tablets 5 mg"].map(norm);
+    assert.equal(relaxTokens(tokenize("fluoxymesterolone"), hays)?.query, "fluoxymesterone");
   });
 });

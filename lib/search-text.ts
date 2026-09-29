@@ -175,9 +175,9 @@ const SYNONYMS = new Map<string, readonly string[]>([
   ["panacur", ["fenbendazole"]],
   ["propecia", ["finasteride"]],
   ["proscar", ["finasteride"]],
-  // The catalogue spells this molecule "Fluoxymesterolone"; the INN is fluoxymesterone.
-  ["halotestin", ["fluoxymesterone", "fluoxymesterolone"]],
-  ["fluoxymesterone", ["fluoxymesterolone"]],
+  // The source data spelt this molecule "Fluoxymesterolone"; the catalogue now uses the INN.
+  ["halotestin", ["fluoxymesterone"]],
+  ["fluoxymesterolone", ["fluoxymesterone"]],
   ["neurontin", ["gabapentin"]],
   ["accutane", ["isotretinoin"]],
   ["roaccutane", ["isotretinoin"]],
@@ -281,6 +281,46 @@ export function esterWord(description: string | null | undefined): string | null
   return SALTS_IF_ABSENT.has(w) ? w : null;
 }
 
+/**
+ * Words buyers use for a whole category that its display name doesn't contain ("steroids",
+ * "painkillers", "sleeping pills", "hair loss"). Searched, never shown. Keyed by category slug
+ * (the slugs keep the source site's names), so the fixed display names stay as they are.
+ * Plural forms, so the singular ("steroid", "painkiller") also matches as a substring.
+ * Append the result right after the category name in buildUniverse() and prepare(), and to the
+ * header's category row text, so every search surface agrees.
+ */
+const CATEGORY_TERMS = new Map<string, string>([
+  ["ed-medicines", "erectile dysfunction"],
+  ["anti-parasitic", "antiparasitic"],
+  ["painkillers", "painkillers"],
+  ["sleeping-pills", "sleeping pills"],
+  ["sleep-alert", "nootropics"],
+  ["hair-loss", "hair loss"],
+  ["steroid-injections", "steroids anabolic"],
+  ["steroid-tablets", "steroids anabolic"],
+]);
+
+/** Extra search words for a category (see CATEGORY_TERMS); "" for none. */
+export const categoryTerms = (slug: string | null | undefined): string => (slug && CATEGORY_TERMS.get(slug)) || "";
+
+/**
+ * Is `a` one edit from `b`: one letter wrong, missing or extra, or two neighbouring letters
+ * swapped ("anastrazole" / "anastrozole", "tadalfil" / "tadalafil", "isotretinion" /
+ * "isotretinoin")? Equal words are not.
+ */
+export function oneEdit(a: string, b: string): boolean {
+  if (a === b || Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  if (a.length === b.length) {
+    return (
+      a.slice(i + 1) === b.slice(i + 1) ||
+      (a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2))
+    );
+  }
+  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+}
+
 export type Relaxed = {
   /**
    * Tokens to search with: the typed ones, with each unmatched long word
@@ -310,7 +350,10 @@ export type Relaxed = {
  *   "testosterone");
  * - an all-letter word of 7+ characters that appears in no haystack loses its
  *   last letter, then its last two, until it appears somewhere ("ivermectine" →
- *   "ivermectin", "tadalafilo" → "tadalafil", "injections" → "injection").
+ *   "ivermectin", "tadalafilo" → "tadalafil", "injections" → "injection");
+ * - failing that, it becomes the one catalogue word of 7+ letters that is a
+ *   single edit away (oneEdit: "anastrazole" → "anastrozole", "tadalfil" →
+ *   "tadalafil"). With two or more such words the typo is ambiguous and is left.
  *
  * `hays` are normalised haystacks (norm()), one per product, e.g. the
  * catalogue's universe.hay.values() or the header index rows' hay. Tokens are
@@ -327,6 +370,9 @@ export function relaxTokens(tokens: readonly string[], hays: Iterable<string>): 
   const anyHas = (t: string) => list.some((h) => hasToken(h, t));
   const allIn = (ts: readonly string[]) => list.some((h) => hasAllTokens(h, ts));
   if (allIn(tokens)) return null;
+  /** The haystacks' long words, built only if a word needs the one-edit rescue. */
+  let vocab: string[] | null = null;
+  const longWords = () => (vocab ??= [...new Set(list.flatMap((h) => h.split(" ")))].filter((w) => RELAXABLE.test(w)));
 
   /** The token to search with instead of `t` ("" = drop it); `first` = fewest letters to cut. */
   const rewrite = (t: string, first: number): string => {
@@ -343,7 +389,9 @@ export function relaxTokens(tokens: readonly string[], hays: Iterable<string>): 
       const brand = SYNONYMS.get(c)?.find(anyHas);
       if (brand) return brand;
     }
-    return t;
+    // One letter wrong, missing or swapped inside the word, when exactly one catalogue word is that close.
+    const near = longWords().filter((w) => oneEdit(t, w));
+    return near.length === 1 ? near[0] : t;
   };
 
   // Pass 1 shortens each unmatched word as little as possible; if the words

@@ -293,11 +293,11 @@ export default async function AboutPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3 lg:col-span-5 lg:justify-end">
-              <OpenEnquiryButton />
-              <Link href="/medicines" className="btn btn-secondary">
+              <OpenEnquiryButton className="btn btn-enquire w-full sm:w-auto" />
+              <Link href="/medicines" className="btn btn-secondary w-full sm:w-auto">
                 {hasCatalog ? `Browse all ${total} products` : "Browse the catalogue"}
               </Link>
-              <Link href="/contact" className="btn btn-ghost">
+              <Link href="/contact" className="btn btn-ghost w-full sm:w-auto">
                 Or write to us
               </Link>
             </div>

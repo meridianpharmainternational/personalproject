@@ -114,7 +114,7 @@ export type CatalogItem = {
   id: string;
   name: string;
   molecule: string | null;
-  /** Ester or salt named by the description, e.g. "enanthate"; search text only, never displayed. */
+  /** Ester or salt named by the description, e.g. "enanthate": searched, and shown with the molecule (moleculeLabel). */
   ester: string | null;
   form: string | null;
   strengths: string[];
@@ -234,10 +234,16 @@ export async function getCatalogSummary(opts: LoadOptions = {}): Promise<Catalog
  */
 export async function getRelated(m: MedicineWithCategory, limit = 4) {
   const all = await getMedicines();
+  // Closest alternatives first: the same dosage form, then the same ester (TEST-C shows other
+  // cypionates, an ivermectin cream other creams), catalogue order within each.
+  const ester = esterWord(m.description);
+  const distance = (x: MedicineWithCategory) => (x.form === m.form ? 0 : 2) + (esterWord(x.description) === ester ? 0 : 1);
   const sameMolecule = all
     .filter((x) => x.id !== m.id && m.molecule && x.molecule === m.molecule)
+    .map((x, i) => ({ x, d: distance(x), i }))
+    .sort((p, q) => p.d - q.d || p.i - q.i)
     .slice(0, limit)
-    .map(toCatalogItem);
+    .map(({ x }) => toCatalogItem(x));
   const taken = new Set([m.id, ...sameMolecule.map((x) => x.id)]);
   const pool = all
     .filter((x) => !taken.has(x.id) && m.category && x.category?.slug === m.category.slug)

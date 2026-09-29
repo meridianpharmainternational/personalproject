@@ -21,6 +21,18 @@ export function keepTogether(s: string): string {
   return s.length <= 16 ? s.replace(/ /g, " ") : s.replace(/(\d) (?=\S)/g, "$1 ");
 }
 
+/**
+ * The molecule as buyers name it. Injectables are stored under their base molecule and the
+ * ester is recorded separately (CatalogItem.ester), so "Testosterone" + "enanthate" reads
+ * "Testosterone Enanthate". Without an ester, or when the molecule already names it, the
+ * molecule is returned as it is.
+ */
+export function moleculeLabel(molecule: string | null | undefined, ester?: string | null): string | null {
+  if (!molecule) return null;
+  if (!ester || molecule.toLowerCase().includes(ester)) return molecule;
+  return `${molecule} ${ester[0].toUpperCase()}${ester.slice(1)}`;
+}
+
 /** One product line in a multi-product enquiry. */
 export type EnquiryLine = {
   name: string;

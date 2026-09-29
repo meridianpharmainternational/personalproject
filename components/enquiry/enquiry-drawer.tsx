@@ -12,7 +12,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, ClipboardList, Copy, MessageCircle, Minus, Plus, Trash2, X } from "lucide-react";
-import { enquiryList, itemKey, toLines, useEnquiryList, type EnquiryItem } from "@/lib/enquiry-list";
+import { enquiryList, itemKey, MAX_ITEMS, toLines, useEnquiryList, type EnquiryItem } from "@/lib/enquiry-list";
 import { removeLineWithUndo } from "@/lib/enquiry-actions";
 import { formatEnquiryItems } from "@/lib/format";
 import { whatsappLink } from "@/lib/site";
@@ -233,8 +233,12 @@ export function EnquiryDrawer() {
   // Steps share one scrolling body: start each step at its top, not where the
   // last step was scrolled to. Runs before the paint (and before the paste
   // box's scroll effect), so the new step never shows mid-way down.
+  // At 400% zoom the whole sheet scrolls instead (see globals.css), so reset it too.
   useLayoutEffect(() => {
-    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+    const body = bodyRef.current;
+    if (!body) return;
+    body.scrollTop = 0;
+    if (body.parentElement) body.parentElement.scrollTop = 0;
   }, [step]);
 
   // What the buyer can see now. A send's result can land after the drawer was
@@ -286,8 +290,9 @@ export function EnquiryDrawer() {
   const formResults = { onSent, onFailed };
 
   // Continue adds any previewed paste lines first, so they are never dropped
-  // by moving on without pressing the paste box's own Add button.
-  const k = pastePending;
+  // by moving on without pressing the paste box's own Add button. A full list
+  // takes none, so it offers plain Continue (the lines stay in the box).
+  const k = n < MAX_ITEMS ? pastePending : 0;
   const continueToDetails = () => {
     const added = k > 0 ? (pasteHandle.current?.add() ?? 0) : 0;
     if (n + added === 0) return;

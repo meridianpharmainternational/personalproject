@@ -6,7 +6,7 @@
  */
 import type { CatalogItem } from "@/lib/catalog";
 import { keepTogether } from "@/lib/format";
-import { hasAllTokens, norm } from "@/lib/search-text";
+import { categoryTerms, hasAllTokens, norm } from "@/lib/search-text";
 
 export const PAGE_SIZE = 48;
 export const VIEW_STORAGE_KEY = "meridian.catalogue.view.v1";
@@ -180,6 +180,7 @@ export function buildUniverse(items: CatalogItem[]): Universe {
           it.form ?? "",
           it.strengths.join(" "),
           it.category?.name ?? "",
+          categoryTerms(it.category?.slug),
           it.ester ?? "",
         ].join(" "),
       ),

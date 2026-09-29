@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEnquiryList } from "@/lib/enquiry-list";
 import { AddToEnquiry } from "@/components/enquiry/add-to-enquiry";
 import type { CatalogItem } from "@/lib/catalog";
-import { keepTogether } from "@/lib/format";
+import { keepTogether, moleculeLabel } from "@/lib/format";
 import { emphStrength, tagStrengths } from "@/components/catalog/catalog-model";
 
 /** Strength badges shown before the "+N" overflow badge (spec §6). */
@@ -41,7 +41,15 @@ export function ProductCard({
   const { items } = useEnquiryList();
   const inList = items.some((i) => i.medicineId === item.id);
   const s = tagStrengths(item.strengths, emph);
+  const shown = s.slice(0, MAX_STRENGTHS);
+  const more = s.length - shown.length;
+  const chip = (x: (typeof s)[number]) => (
+    <span key={x.value} className={x.match ? "badge badge-code is-match" : "badge badge-code"}>
+      {x.value}
+    </span>
+  );
   const stock = item.availability === "in-stock";
+  const molecule = moleculeLabel(item.molecule, item.ester);
 
   return (
     <article
@@ -68,15 +76,17 @@ export function ProductCard({
         <h3 className="pcard-title">
           <Link href={`/medicines/${item.id}`}>{item.name}</Link>
         </h3>
-        {item.molecule && <p className="pcard-molecule">{item.molecule}</p>}
+        {molecule && <p className="pcard-molecule">{molecule}</p>}
         {s.length > 0 && (
           <div className="pcard-meta">
-            {s.slice(0, MAX_STRENGTHS).map((x) => (
-              <span key={x.value} className={x.match ? "badge badge-code is-match" : "badge badge-code"}>
-                {x.value}
+            {(more > 0 ? shown.slice(0, -1) : shown).map(chip)}
+            {more > 0 && (
+              // The count stays with the last strength, so "+N" never wraps onto a row by itself.
+              <span className="flex gap-1.5">
+                {chip(shown[shown.length - 1])}
+                <span className="badge badge-code">+{more}</span>
               </span>
-            ))}
-            {s.length > MAX_STRENGTHS && <span className="badge badge-code">+{s.length - MAX_STRENGTHS}</span>}
+            )}
           </div>
         )}
         <p className="pcard-spec">

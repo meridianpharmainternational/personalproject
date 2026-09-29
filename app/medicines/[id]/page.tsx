@@ -12,7 +12,7 @@ import {
   type CatalogItem,
 } from "@/lib/catalog";
 import { site } from "@/lib/site";
-import { keepTogether } from "@/lib/format";
+import { keepTogether, moleculeLabel } from "@/lib/format";
 import type { MedicineWithCategory } from "@/types/db";
 import { ProductCard } from "@/components/catalog/product-card";
 import { ProductRow } from "@/components/catalog/product-row";
@@ -113,7 +113,8 @@ export default async function ProductPage({ params }: Props) {
     "@context": "https://schema.org",
     "@type": "Product",
     name: m.name,
-    description: paragraphs.join(" ") || describe(m, item.strengths),
+    // A description that is only the ester word is already in the lead ("Testosterone Cypionate").
+    description: (item.ester ? "" : paragraphs.join(" ")) || describe(m, item.strengths),
     ...(item.image ? { image: item.image } : {}),
     ...(m.category ? { category: m.category.name } : {}),
     additionalProperty: [
@@ -185,7 +186,7 @@ export default async function ProductPage({ params }: Props) {
             <h1 id="pdp-title" className="mt-3 break-words">
               {m.name}
             </h1>
-            {m.molecule && <p className="lead mt-3">{m.molecule}</p>}
+            {m.molecule && <p className="lead mt-3">{moleculeLabel(m.molecule, item.ester)}</p>}
             <p className="mt-5">
               <span className={`badge ${stock ? "badge-stock" : "badge-mto"}`}>{availability}</span>
             </p>
@@ -219,7 +220,7 @@ export default async function ProductPage({ params }: Props) {
         </div>
       </section>
 
-      {paragraphs.length > 0 && (
+      {paragraphs.length > 0 && !item.ester && (
         <section className="section pt-4 lg:pt-8" aria-labelledby="pdp-about">
           <div className="container-grid">
             <header className="section-head reveal">

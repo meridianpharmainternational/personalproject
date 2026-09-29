@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 // Same normaliser and tokenizer the /medicines catalogue uses, so "100mg",
 // "100 mg" and "Cenforce-D" match identically in the header search and on the
 // catalogue page.
-import { norm, tokenize, relaxTokens, hasAllTokens, relevanceScore } from "@/lib/search-text";
+import { categoryTerms, norm, tokenize, relaxTokens, hasAllTokens, relevanceScore } from "@/lib/search-text";
 
 /** One product in the lean search index served by /api/catalog-index. */
 export type IndexItem = {
@@ -18,7 +18,7 @@ export type IndexItem = {
   image: string | null;
   /**
    * The ester or salt the product's description names ("enanthate"), from
-   * esterWord() in lib/search-text; searched but never shown. Optional so an
+   * esterWord() in lib/search-text; searched, and shown with the molecule (moleculeLabel). Optional so an
    * older cached index response (and test fixtures) without it still work.
    */
   ester?: string | null;
@@ -168,9 +168,15 @@ function prepare(index: IndexItem[]): Prepared {
     mol: norm(it.molecule ?? ""),
     // Same fields and order as the catalogue's buildUniverse(), so counts agree.
     hay: norm(
-      [it.name, it.molecule ?? "", it.form ?? "", it.strengths.join(" "), it.category?.name ?? "", it.ester ?? ""].join(
-        " ",
-      ),
+      [
+        it.name,
+        it.molecule ?? "",
+        it.form ?? "",
+        it.strengths.join(" "),
+        it.category?.name ?? "",
+        categoryTerms(it.category?.slug),
+        it.ester ?? "",
+      ].join(" "),
     ),
   }));
 
@@ -185,7 +191,7 @@ function prepare(index: IndexItem[]): Prepared {
     }
     const c = r.item.category;
     if (c) {
-      const e = catMap.get(c.slug) ?? { slug: c.slug, name: c.name, n: norm(c.name), count: 0 };
+      const e = catMap.get(c.slug) ?? { slug: c.slug, name: c.name, n: norm(`${c.name} ${categoryTerms(c.slug)}`), count: 0 };
       e.count++;
       catMap.set(c.slug, e);
     }

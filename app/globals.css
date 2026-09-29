@@ -131,6 +131,10 @@
 /* Tablet (single column): pin the globe to the top-right corner. At 768-1023px the green meridian
    (viewBox x >= 1011) lands at x >= 655-910px in the top ~60px, clear of the h1, lead and search row. */
 @media (min-width:768px) and (max-width:1023.98px) { .hero-art { top:-3rem; bottom:auto; height:32rem; right:-12rem; opacity:.6; } }
+/* Small desktops: the 2:1 art box is wider than the viewport, so right:0 pulled the globe under the
+   h1 and lead. Shift it right as the viewport narrows (0 at 1440px); the globe is cropped at the
+   right edge instead, and .hero's overflow:hidden keeps the page from scrolling sideways. */
+@media (min-width:1024px) and (max-width:1439.98px) { .hero-art { right:calc((100vw - 1440px) * .6); } }
 /* 4 · Graduated scale divider */
 .scale-rule { height:12px; background:var(--svg-scale) left bottom / 40px 12px repeat-x; border-bottom:1px solid var(--rule); }
 :is(.hero, .surface-dark, .surface-ink, .site-footer) .scale-rule { background-image:var(--svg-scale-dark); border-color:var(--on-dark-rule); }
@@ -351,7 +355,6 @@
 .search-input::-webkit-search-cancel-button { -webkit-appearance:none; appearance:none; }
 .search-input:focus-visible { outline:2px solid var(--navy-600); outline-offset:0; border-color:var(--navy-600); background:#fff; }
 .search-icon { position:absolute; left:.875rem; top:50%; translate:0 -50%; width:20px; height:20px; color:var(--text-muted); pointer-events:none; }
-.search-kbd { position:absolute; right:.625rem; top:50%; translate:0 -50%; }
 /* Height cap: 9rem = utility bar (44px) + header (72px) + 8px gap + ~20px clear of the viewport bottom
    at the top of a desktop page (less once the utility bar has scrolled away; the tablet panel is fixed
    at header + 8px), so it holds six two-line product rows plus the Molecules group on common laptop
@@ -441,12 +444,15 @@
 .pcard-title a::after { content:""; position:absolute; inset:0; z-index:1; }
 .pcard-molecule { color:var(--text); }
 .pcard-meta { display:flex; flex-wrap:wrap; gap:.375rem; }
-.pcard-spec { font-size:.875rem; color:var(--text-muted); }
-.pcard-actions { position:relative; z-index:3; display:flex; gap:.5rem; margin-top:auto; padding-top:.75rem; }
+/* The spec line and the actions sit at the card foot, so they line up across a grid row
+   however the strength chips above them wrap. */
+.pcard-spec { font-size:.875rem; color:var(--text-muted); margin-top:auto; }
+.pcard-actions { position:relative; z-index:3; display:flex; gap:.5rem; padding-top:.75rem; }
 .pcard-actions .btn { flex:1; }
 .pcard--compact .pcard-title { font-size:1.0625rem; }
 .pcard--compact .pcard-body { padding:.75rem; }
 .pcard--compact :is(.pcard-spec, .pcard-cat, .pcard-meta) { display:none; }
+.pcard--compact .pcard-actions { margin-top:auto; }
 .pcard--compact .btn-label-long { display:none; }
 .pcard--compact .pcard-ph { padding:.75rem; }
 .pcard--compact .pcard-ph-name { font-size:1.125rem; -webkit-line-clamp:2; }
@@ -479,6 +485,16 @@
   padding:.5rem .5rem .5rem 1rem; background:var(--navy-900); color:#fff; border-radius:var(--r-2); box-shadow:var(--shadow-pop); animation:mr-rise var(--dur-3) var(--ease-out); }
 .toolbar-band { position:sticky; top:var(--header-h); z-index:30; background:var(--canvas); border-bottom:1px solid var(--rule); transition:box-shadow var(--dur-2); }
 .toolbar-band.is-stuck { box-shadow:var(--shadow-sticky); }
+/* Short viewports (landscape phones, 150-200% zoom): the sticky header, toolbar and table head plus
+   the fixed enquiry bar left results a 109-203px slot. Only the site header stays sticky here, so
+   search and the enquiry list stay in reach while Filters, Sort and View scroll with the page. */
+@media (max-height:500px) {
+  html { scroll-padding-top:calc(var(--header-h) + 16px); }
+  .toolbar-band { position:relative; top:auto; }
+  .toolbar-band.is-stuck { box-shadow:none; }
+  .ptable th { top:var(--header-h); }
+  .filters { top:calc(var(--header-h) + 24px); max-height:calc(100dvh - var(--header-h) - 48px); }
+}
 .results-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem 1rem; min-height:var(--toolbar-h); padding-block:.375rem; }
 .results-count { font-weight:600; color:var(--text-strong); }
 .results-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; transition:opacity 150ms var(--ease-out); }
@@ -614,10 +630,27 @@
 /* ...and a two-button footer (step 1: Continue + Keep browsing; step 2 without WhatsApp: Send + Back to
    list) goes side by side where the drawer is >= 480px wide (it is 30rem from 640px, full width below):
    ~73px instead of ~145px. The primary button takes the free width and a long label ("Add N pasted lines
-   & continue") wraps inside it. The WhatsApp step-2 footer and step 3 (Close over a button pair) stay stacked. */
+   & continue") wraps inside it. Step 2 with WhatsApp (Send, WhatsApp, Back to list) keeps Send on its own
+   row with WhatsApp beside Back to list (~129px instead of ~185px). The short-lived "Sent on WhatsApp?"
+   state and step 3 (Close over a button pair) stay stacked. */
 @media (max-height:600px) and (min-width:480px) {
   .drawer-steps ~ .drawer-foot:has(> .btn:nth-child(2):last-child) { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
   .drawer-steps ~ .drawer-foot:has(> .btn:nth-child(2):last-child) > .btn-lg { white-space:normal; text-align:center; }
+  .drawer-steps ~ .drawer-foot:has(> a.btn-secondary):not(:has(> p)) { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
+  .drawer-steps ~ .drawer-foot:has(> a.btn-secondary):not(:has(> p)) > .btn-lg { grid-column:1 / -1; }
+}
+/* 400% zoom (a 320x256 CSS px viewport, WCAG 1.4.10): below 480px wide the pinned grip, head, steps and
+   stacked footer left the list or form no room at all. Here the whole sheet scrolls as one column (head,
+   steps, list or form, then the footer; enquiry-drawer.tsx resets that scroll on a step change). Nothing is
+   pinned at the bottom, so the toast drops to the bottom edge (over EnquiryToast's inline lift) and the
+   sheet itself, not its body, pads for it. */
+@media (max-height:420px) and (max-width:479.98px) {
+  .drawer:has(> .drawer-steps) { top:0; height:auto; border-radius:0; overflow-y:auto; overscroll-behavior:contain; }
+  .drawer:has(> .drawer-steps) > .drawer-grip { display:none; }
+  .drawer:has(> .drawer-steps) > .drawer-body { flex:none; overflow:visible; }
+  body:has(.drawer:not(.is-closing) > .drawer-steps) .toast { bottom:calc(8px + env(safe-area-inset-bottom)) !important; }
+  html:has(.toast) .drawer:has(> .drawer-steps) { scroll-padding-bottom:144px; padding-bottom:144px; }
+  html:has(.toast) .drawer:has(> .drawer-steps) > .drawer-body { scroll-padding-bottom:0; padding-bottom:1.5rem; }
 }
 .enq-line-remove { display:grid; place-items:center; width:44px; height:44px; border-radius:var(--r-1); color:var(--text-muted); }
 .enq-line.is-new { animation:mr-flash 900ms var(--ease-out); }
@@ -703,6 +736,23 @@ html:has(.bulk-bar) { scroll-padding-bottom:calc(60px + 32px); }
 @media (min-width:768px) and (max-width:1023.98px) {
   html:has(.enq-bar.is-visible):has(.toast) { scroll-padding-bottom:calc(80px + 88px + 16px + env(safe-area-inset-bottom)); }
 }
+/* The enquiry drawer body and the mobile search sheet scroll on their own, so the rules above never reach
+   them. While a toast is up below 1024px (in the drawer 12px above the footer, up to ~102px tall with a
+   three-line message; over the sheet at 16px, or 80px above the enquiry bar), pad them so Tab stops and the
+   last controls can scroll clear of it (WCAG 2.4.11). */
+@media (max-width:1023.98px) {
+  html:has(.toast) .drawer-steps ~ .drawer-body { scroll-padding-bottom:140px; padding-bottom:140px; }
+  html:has(.toast) .search-sheet { scroll-padding-bottom:calc(16px + 128px + 16px + env(safe-area-inset-bottom));
+    padding-bottom:calc(16px + 128px + 16px + env(safe-area-inset-bottom)); }
+  html:has(.enq-bar.is-visible):has(.toast) .search-sheet { scroll-padding-bottom:calc(80px + 128px + 16px + env(safe-area-inset-bottom));
+    padding-bottom:calc(80px + 128px + 16px + env(safe-area-inset-bottom)); }
+}
+/* Focus (or the caret) inside a bar that never moves must not scroll the page. The padding above keeps
+   OTHER content clear of these bars; applied to their own controls, Chrome scrolled about half a screen on
+   every focus or keystroke there (typing in the header search, Tab into the toolbar or the bulk bar).
+   !important beats the more specific :has() rules above. */
+html:has(:is(.site-header, .toolbar-band) :focus) { scroll-padding-top:0 !important; }
+html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-padding-bottom:0 !important; }
 .back-to-top { position:fixed; z-index:44; right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); }
 /* Table view with rows selected: sit above the sticky bulk bar (60px tall at bottom:16px, + 12px) instead
    of over its count or its Clear button. Only the catalogue renders BackToTop, where that bar is one row. */

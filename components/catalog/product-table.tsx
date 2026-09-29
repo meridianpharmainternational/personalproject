@@ -9,6 +9,7 @@ import { toAddInput } from "@/lib/enquiry-actions";
 import { announce } from "@/lib/ui-store";
 import { AddToEnquiry } from "@/components/enquiry/add-to-enquiry";
 import { emphStrength, isRealStrength, tagStrengths } from "@/components/catalog/catalog-model";
+import { moleculeLabel } from "@/lib/format";
 
 function Dash() {
   return (
@@ -231,7 +232,7 @@ export function ProductTable({
                         a line with "·". */}
                     {(it.molecule || it.form) && (
                       <p className={it.molecule ? "psub" : `psub ${formInSub}`}>
-                        {it.molecule}
+                        {moleculeLabel(it.molecule, it.ester)}
                         {it.form && (
                           <span className={formInSub}>
                             {it.molecule ? " · " : ""}

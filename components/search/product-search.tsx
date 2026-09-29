@@ -12,6 +12,7 @@ import {
 } from "@/lib/catalog-index";
 import { tokenize } from "@/lib/search-text";
 import { emphStrength, strengthEmphasis, strengthLine } from "@/components/catalog/catalog-model";
+import { moleculeLabel } from "@/lib/format";
 import { enquiryList } from "@/lib/enquiry-list";
 import { customId } from "@/lib/enquiry-actions";
 import { announce } from "@/lib/ui-store";
@@ -39,7 +40,8 @@ const productCount = (n: number) => `${n} ${n === 1 ? "product" : "products"}`;
 /**
  * Product search used in three places:
  * - "popover": header search; results drop down in a panel (disclosure pattern,
- *   so the Add buttons inside rows stay valid). "/" focuses it.
+ *   so the Add buttons inside rows stay valid). Ctrl+K / Cmd+K focuses it (a
+ *   chord, not a bare "/", which WCAG 2.1.4 rules out).
  * - "sheet": full-screen mobile search (autofocus, popular molecules when empty).
  * - "inline": inside the enquiry drawer — rows only offer "Add", no navigation.
  *
@@ -137,15 +139,20 @@ export function ProductSearch({
     if (autoFocus) inputRef.current?.focus();
   }, [autoFocus]);
 
-  // "/" focuses the header search unless the user is typing somewhere.
+  // Ctrl+K / Cmd+K focuses the header search. A chord, so no single key press
+  // moves focus (WCAG 2.1.4). Not while typing in a field (on macOS Ctrl+K
+  // deletes to the end of the line there), and not while a dialog makes the
+  // header inert, so the browser's own shortcut still works then.
   useEffect(() => {
     if (mode !== "popover") return;
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "k") return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const input = inputRef.current;
+      if (!input || input.closest("[inert]")) return;
       e.preventDefault();
-      inputRef.current?.focus();
+      input.focus();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -302,12 +309,10 @@ export function ProductSearch({
           // for the "Clear search" button below, which is 44px and focusable.
           className="search-input [&::-webkit-search-cancel-button]:appearance-none"
           // Once something is typed, 3rem keeps the text clear of the 44px
-          // "Clear search" button. While empty, the placeholder gets the room:
-          // popover just clears the 24px "/" key at right .625rem; the other
-          // modes show no key.
+          // "Clear search" button. While empty, the placeholder gets the room.
           style={
             mode === "popover"
-              ? { paddingRight: q ? "3rem" : "2.5rem" }
+              ? { paddingRight: q ? "3rem" : "1rem" }
               : { paddingRight: q ? "3rem" : "1rem", background: "#fff" }
           }
           placeholder={ph}
@@ -321,12 +326,8 @@ export function ProductSearch({
           }}
           onKeyDown={onInputKey}
           aria-controls={showPanel ? panelId : undefined}
+          aria-keyshortcuts={mode === "popover" ? "Control+K Meta+K" : undefined}
         />
-        {mode === "popover" && !q && (
-          <kbd className="kbd search-kbd" aria-hidden>
-            /
-          </kbd>
-        )}
         {q && (
           <button
             type="button"
@@ -406,7 +407,7 @@ export function ProductSearch({
                     Products
                   </p>
                   {results.products.map((p) => {
-                    const meta = [p.molecule, p.form].filter(Boolean).join(" · ");
+                    const meta = [moleculeLabel(p.molecule, p.ester), p.form].filter(Boolean).join(" · ");
                     const { shown, more } = strengthLine(p.strengths, emph);
                     return (
                       <div key={p.id} className="search-row">

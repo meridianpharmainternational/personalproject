@@ -21,13 +21,13 @@ export function SiteFooter({ nav }: { nav: NavData }) {
         <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
           <h2 className="lg:col-span-7">Have a product list? Send it in one enquiry.</h2>
           <div className="flex flex-wrap gap-3 lg:col-span-5 lg:justify-end">
-            <OpenEnquiryButton className="btn btn-enquire btn-lg" label="Open enquiry list" />
+            <OpenEnquiryButton className="btn btn-enquire btn-lg w-full sm:w-auto" label="Open enquiry list" />
             {contact.email ? (
-              <a className="btn btn-outline-inverse btn-lg" href={`mailto:${contact.email}`}>
+              <a className="btn btn-outline-inverse btn-lg w-full sm:w-auto" href={`mailto:${contact.email}`}>
                 Email the exports team
               </a>
             ) : (
-              <Link className="btn btn-outline-inverse btn-lg" href="/contact">
+              <Link className="btn btn-outline-inverse btn-lg w-full sm:w-auto" href="/contact">
                 Contact the exports team
               </Link>
             )}
