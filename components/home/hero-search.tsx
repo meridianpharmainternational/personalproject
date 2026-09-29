@@ -3,6 +3,7 @@
 import { useId, useSyncExternalStore, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
+import { startNavigationProgress } from "@/components/navigation-progress";
 
 /**
  * Hero search (home). A plain GET form to /medicines, so it works without JS;
@@ -39,7 +40,9 @@ export function HeroSearch({ categories }: { categories: { slug: string; name: s
     if (category) params.set("category", category);
     if (q) params.set("q", q);
     const qs = params.toString();
-    router.push(qs ? `/medicines?${qs}` : "/medicines");
+    const href = qs ? `/medicines?${qs}` : "/medicines";
+    startNavigationProgress(href);
+    router.push(href);
   };
 
   return (

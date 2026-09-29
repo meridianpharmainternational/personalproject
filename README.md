@@ -63,6 +63,18 @@ Scripts: `npm run dev` · `npm run build` · `npm run start` · `npm run typeche
 Without the Resend vars, enquiries still save and appear in the admin inbox —
 email is just skipped.
 
+### Deploying on Vercel
+
+- Add the variables above under **Project → Settings → Environment Variables**
+  (Production and Preview), then redeploy. `.env.local` is never committed, so
+  without them the build stops with `supabaseUrl is required`.
+- [vercel.json](vercel.json) runs the server functions in **icn1 (Seoul)**, next
+  to the Supabase database (ap-northeast-2). Every page and admin action makes
+  several database round trips; from Vercel's default region (Washington DC)
+  each one crosses the Pacific. If the Supabase project ever moves, change the
+  region to match.
+- Set **Settings → Git → Production Branch** to `prod`.
+
 ---
 
 ## How it works
@@ -88,10 +100,10 @@ in **/admin/enquiries**, where you can mark them read / archived / delete.
 
 ### Access control (three layers)
 1. **Middleware** ([middleware.ts](middleware.ts) → [lib/supabase/middleware.ts](lib/supabase/middleware.ts))
-   refreshes the session and gates `/admin/**` to logged-in admins; everything
-   else is public.
-2. **Layout guard** ([lib/auth/guards.ts](lib/auth/guards.ts)) re-checks admin
-   status in the `/admin` layout (defense-in-depth).
+   refreshes the session and sends signed-out visitors of `/admin/**` to `/login`;
+   everything else is public. The JWT is verified locally (`getClaims()`).
+2. **Layout guard** ([lib/auth/guards.ts](lib/auth/guards.ts)) checks admin
+   membership in the `/admin` layout (once per request).
 3. **RLS** in Postgres is the real boundary (public reads active medicines only;
    enquiries and inactive rows are admin-only).
 

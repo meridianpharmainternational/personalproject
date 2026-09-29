@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { Category, Enquiry, MedicineWithCategory } from "@/types/db";
 
@@ -109,12 +110,13 @@ export async function adminGetEnquiries(): Promise<Enquiry[]> {
   return (await adminGetEnquiryInbox()).enquiries;
 }
 
-export async function adminCounts(): Promise<{
+/** Cached per request: the admin layout (nav badge) and the dashboard share one set of count queries. */
+export const adminCounts = cache(async (): Promise<{
   medicines: number;
   activeMedicines: number;
   enquiries: number;
   newEnquiries: number;
-}> {
+}> => {
   const supabase = await createClient();
   const [meds, activeMeds, enq, newEnq] = await Promise.all([
     supabase.from("medicines").select("id", { count: "exact", head: true }),
@@ -136,4 +138,4 @@ export async function adminCounts(): Promise<{
     enquiries: enq.count ?? 0,
     newEnquiries: newEnq.count ?? 0,
   };
-}
+});

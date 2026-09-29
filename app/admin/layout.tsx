@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, LogOut } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { adminCounts } from "@/lib/admin/data";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { SignOutButton } from "@/components/admin/sign-out-button";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -20,11 +21,11 @@ export default async function AdminLayout({
 }: {
   children: ReactNode;
 }) {
-  const { email } = await requireAdmin();
-  // A counts failure only drops the nav badge; it must not take the admin
-  // chrome (View site, Sign out) down with it. The page's own read still
-  // throws into the (admin) error boundary.
-  const counts = await adminCounts().catch(() => null);
+  // The admin check and the nav counts run in parallel: a failed check still
+  // redirects, and its counts are never shown. A counts failure only drops the
+  // nav badge; it must not take the admin chrome (View site, Sign out) down
+  // with it. The page's own read still throws into the (admin) error boundary.
+  const [{ email }, counts] = await Promise.all([requireAdmin(), adminCounts().catch(() => null)]);
 
   return (
     <>
@@ -48,12 +49,7 @@ export default async function AdminLayout({
               View site
               <ArrowUpRight aria-hidden="true" />
             </Link>
-            <form action="/auth/signout" method="post">
-              <button type="submit" className="btn btn-secondary btn-sm">
-                <LogOut aria-hidden="true" />
-                Sign out
-              </button>
-            </form>
+            <SignOutButton />
           </div>
         </div>
       </div>

@@ -230,6 +230,10 @@
 .icon-btn-bare { border-color:transparent; background:transparent; }
 .icon-btn svg { width:20px; height:20px; }
 .spinner { width:18px; height:18px; border:2px solid currentColor; border-right-color:transparent; border-radius:9999px; animation:mr-spin .8s linear infinite; }
+.spinner-lg { width:36px; height:36px; border-width:3px; color:var(--navy-900); }
+/* A route's loading screen (app/admin/loading.tsx): a centred spinner and "Loading…" while the page's
+   data arrives. It fades in after 150ms (below), so a page that loads quickly never flashes it. */
+.page-loading { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.75rem; min-height:40vh; color:var(--text-muted); }
 
 /* --------------------------------------------------------------- forms */
 .label { display:block; margin-bottom:.375rem; font-size:1rem; font-weight:600; line-height:1.4; color:var(--navy-900); }
@@ -328,6 +332,11 @@
 .utility-bar a { display:inline-flex; align-items:center; gap:.5rem; min-height:44px; color:var(--on-dark-muted); }
 .utility-bar svg { width:16px; height:16px; }
 .site-header { position:sticky; top:0; z-index:50; background:var(--canvas); border-bottom:1px solid var(--rule); transition:box-shadow var(--dur-2) var(--ease-out); }
+/* Page-change bar along the header's bottom edge (components/navigation-progress.tsx). Its width is set
+   inline as it creeps towards 90%; it runs to 100% and fades once the new page is showing. */
+.nav-progress { position:absolute; left:0; bottom:-1px; z-index:1; width:100%; height:3px; background:var(--navy-600);
+  transform-origin:left center; pointer-events:none; transition:transform 350ms linear; }
+.nav-progress.is-done { opacity:0; transition:transform 180ms var(--ease-out), opacity 200ms linear 160ms; }
 .site-header.is-scrolled { box-shadow:var(--shadow-sticky); }
 .site-header-inner { position:relative; display:flex; align-items:center; gap:1rem; height:var(--header-h); }
 .brand { display:inline-flex; align-items:center; gap:.75rem; min-height:44px; flex:none; text-decoration:none; }
@@ -822,6 +831,7 @@ body:has(.bulk-bar) .back-to-top { bottom:calc(88px + env(safe-area-inset-bottom
   .hero-art .ha-grid { animation:mr-fade-14 900ms var(--ease-out) both; }
   .hero-art .ha-prime { animation:mr-draw var(--dur-draw) var(--ease-out) 400ms both; }
   .skeleton { animation:mr-pulse 1.2s var(--ease-in-out) infinite alternate; }
+  .page-loading { animation:mr-fade 200ms var(--ease-out) 150ms both; }
 }
 @keyframes mr-fade     { from { opacity:0 } to { opacity:1 } }
 @keyframes mr-fade-14  { from { opacity:0 } to { opacity:.14 } }

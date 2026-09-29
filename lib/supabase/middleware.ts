@@ -1,15 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { classifyRoute, isAuthEntryPage, ROUTES } from "@/lib/routes";
-import { checkIsAdmin } from "@/lib/auth/access";
 
 /**
  * Runs on every matched request (see middleware.ts). Two jobs:
  *   1. Refresh the Supabase session (rewrites auth cookies).
- *   2. Gate the /admin panel to logged-in admins; everything else is public.
+ *   2. Send signed-out visitors of the /admin panel to /login; everything else
+ *      is public.
  *
- * Route protection here is UX + defense-in-depth; RLS is the real boundary and
- * the /admin layout re-checks server-side as a third layer.
+ * Route protection here is UX only. The /admin layout's requireAdmin() checks
+ * admin membership server-side, and RLS in the database is the real boundary.
  */
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   let supabaseResponse = NextResponse.next({ request });
@@ -35,12 +35,15 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     },
   );
 
-  // IMPORTANT: do not run code between createServerClient and getUser().
-  // Wrapped so a transient network/config error degrades to "anonymous"
-  // instead of 500-ing public pages.
-  let user = null;
+  // IMPORTANT: do not run code between createServerClient and getClaims().
+  // getClaims() refreshes an expired session (rewriting the cookies above) and
+  // verifies the JWT locally against the project's signing keys, so it costs
+  // no Auth round trip. Wrapped so a transient network/config error degrades
+  // to "anonymous" instead of 500-ing public pages.
+  let user: { id: string } | null = null;
   try {
-    user = (await supabase.auth.getUser()).data.user;
+    const sub = (await supabase.auth.getClaims()).data?.claims?.sub;
+    user = typeof sub === "string" ? { id: sub } : null;
   } catch {
     user = null;
   }
@@ -57,15 +60,13 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     return supabaseResponse;
   }
 
-  // Admin routes require a logged-in admin.
+  // Admin routes require a signed-in user. Whether that user is an admin is
+  // checked by requireAdmin() in the /admin layout (and by RLS on every admin
+  // read), so the middleware no longer repeats that query on each request.
   if (!user) {
     return redirectTo(request, supabaseResponse, ROUTES.login, {
       redirectedFrom: pathname,
     });
-  }
-  const isAdmin = await checkIsAdmin(supabase, user.id);
-  if (!isAdmin) {
-    return redirectTo(request, supabaseResponse, ROUTES.home);
   }
 
   return supabaseResponse;

@@ -17,6 +17,7 @@ import { enquiryList } from "@/lib/enquiry-list";
 import { customId } from "@/lib/enquiry-actions";
 import { announce } from "@/lib/ui-store";
 import { AddToEnquiry } from "@/components/enquiry/add-to-enquiry";
+import { startNavigationProgress } from "@/components/navigation-progress";
 
 type Mode = "popover" | "sheet" | "inline";
 
@@ -213,7 +214,9 @@ export function ProductSearch({
   const submit = () => {
     if (!term || mode === "inline") return;
     done();
-    router.push(`/medicines?q=${encodeURIComponent(term)}`);
+    const href = `/medicines?q=${encodeURIComponent(term)}`;
+    startNavigationProgress(href);
+    router.push(href);
   };
 
   // The same reset as Escape, from the "Clear search" button. The button

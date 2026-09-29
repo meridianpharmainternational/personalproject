@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ClipboardList, Mail, Menu, MessageCircle, Phone, Search, X } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { ProductSearch } from "@/components/search/product-search";
 import { MobileNav } from "@/components/mobile-nav";
+import { NavigationProgress } from "@/components/navigation-progress";
 import type { NavData } from "@/components/category-bar";
 import { forgetCatalogueOrigin } from "@/components/catalog/back-to-results";
 import { enquiryList, useEnquiryList } from "@/lib/enquiry-list";
@@ -101,6 +102,10 @@ export function SiteHeader({
       </aside>
 
       <header className={`site-header${scrolled ? " is-scrolled" : ""}`}>
+        {/* Page-change bar on the header’s bottom edge (useSearchParams, so it needs Suspense). */}
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <div className="container-grid site-header-inner">
           <Logo />
           <nav className="nav ml-4" aria-label="Main">
