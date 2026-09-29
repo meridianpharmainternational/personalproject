@@ -1,67 +1,104 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { MailOpen, Archive, RotateCcw, Trash2 } from "lucide-react";
 import {
   setEnquiryStatus,
   deleteEnquiry,
 } from "@/app/admin/enquiries/actions";
+import { announce } from "@/lib/ui-store";
 import type { EnquiryStatus } from "@/types/db";
+
+type Which = "read" | "archived" | "new" | "delete";
 
 export function EnquiryRowActions({
   id,
   status,
+  name,
+  className = "",
 }: {
   id: string;
   status: EnquiryStatus;
+  /** Sender's name, for screen-reader context on each button. */
+  name?: string;
+  className?: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const [which, setWhich] = useState<Which | null>(null);
+  const who = name ? `enquiry from ${name}` : "enquiry";
 
-  const act = (fn: () => Promise<void>) => () => startTransition(() => void fn());
+  const act = (w: Which, fn: () => Promise<void>, done: string) => () => {
+    setWhich(w);
+    startTransition(async () => {
+      await fn();
+      announce(done);
+    });
+  };
+
+  const label = (w: Which, icon: ReactNode, text: string) =>
+    pending && which === w ? (
+      <>
+        <span className="spinner" aria-hidden="true" />
+        {text}
+      </>
+    ) : (
+      <>
+        {icon}
+        {text}
+      </>
+    );
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className={`flex flex-wrap gap-2 ${className}`} aria-busy={pending || undefined}>
       {status !== "read" && (
         <button
+          type="button"
           disabled={pending}
-          onClick={act(() => setEnquiryStatus(id, "read"))}
-          className="btn btn-outline px-3 py-1.5 text-sm disabled:opacity-50"
+          onClick={act("read", () => setEnquiryStatus(id, "read"), `Marked ${who} as read.`)}
+          className="btn btn-secondary btn-sm"
         >
-          <MailOpen className="h-3.5 w-3.5" />
-          Mark read
+          {label("read", <MailOpen aria-hidden="true" />, "Mark read")}
+          <span className="sr-only">: {who}</span>
         </button>
       )}
       {status !== "archived" && (
         <button
+          type="button"
           disabled={pending}
-          onClick={act(() => setEnquiryStatus(id, "archived"))}
-          className="btn btn-outline px-3 py-1.5 text-sm disabled:opacity-50"
+          onClick={act("archived", () => setEnquiryStatus(id, "archived"), `Archived ${who}.`)}
+          className="btn btn-secondary btn-sm"
         >
-          <Archive className="h-3.5 w-3.5" />
-          Archive
+          {label("archived", <Archive aria-hidden="true" />, "Archive")}
+          <span className="sr-only">: {who}</span>
         </button>
       )}
       {status !== "new" && (
         <button
+          type="button"
           disabled={pending}
-          onClick={act(() => setEnquiryStatus(id, "new"))}
-          className="btn btn-outline px-3 py-1.5 text-sm disabled:opacity-50"
+          onClick={act("new", () => setEnquiryStatus(id, "new"), `Marked ${who} as new.`)}
+          className="btn btn-secondary btn-sm"
         >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Mark new
+          {label("new", <RotateCcw aria-hidden="true" />, "Mark new")}
+          <span className="sr-only">: {who}</span>
         </button>
       )}
       <button
+        type="button"
         disabled={pending}
         onClick={() => {
           if (window.confirm("Delete this enquiry?")) {
-            startTransition(() => void deleteEnquiry(id));
+            setWhich("delete");
+            startTransition(async () => {
+              await deleteEnquiry(id);
+              announce(`Deleted ${who}.`);
+            });
           }
         }}
-        className="btn btn-outline px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+        className="btn btn-danger btn-sm sm:ml-auto"
       >
-        <Trash2 className="h-3.5 w-3.5" />
-        Delete
+        {label("delete", <Trash2 aria-hidden="true" />, "Delete")}
+        <span className="sr-only">: {who}</span>
       </button>
     </div>
   );

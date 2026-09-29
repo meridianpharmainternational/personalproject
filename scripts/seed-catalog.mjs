@@ -10,6 +10,11 @@
  * Sildenafil Citrate), with the brand's representative image uploaded to the
  * medicine-images bucket.
  *
+ * Source-data corrections (PRODUCT_FIXES, BRAND_FIXES, strength normalising,
+ * exact-duplicate removal) are applied here so a re-seed stays correct; they
+ * fix rows that would otherwise hide products from category, molecule, search,
+ * Dosage-form and Strength-facet paths, and keep pack sizes out of strengths.
+ *
  * Run:  node scripts/seed-catalog.mjs
  * Idempotent: re-inserts the whole catalog each run (clears prior seed rows).
  */
@@ -64,10 +69,74 @@ const OLD_PLACEHOLDER_SLUGS = [
   "gastrointestinal", "respiratory", "vitamins",
 ];
 
+// --- source-data corrections ------------------------------------------------
+// Product-level overrides, keyed by E:/medi catalog.json product id. Applied
+// before the category lookup, so category_id and the controlled note follow.
+const PRODUCT_FIXES = {
+  // Ivermectin creams were filed under Oral Therapies (oral anabolics) with a
+  // split molecule "Ivermectin (Cream)", so ?molecule=Ivermectin and the
+  // Anti-Parasitic category missed them. Form uses the one topical spelling
+  // ("Cream / Gel", as tretinoin) so the Dosage form facet has one option.
+  "steroid-tablets-ivermectin": { molecule: "Ivermectin", category: "anti-parasitic", form: "Cream / Gel" },
+  // Pending owner decision: "steroid-tablets-tretinoin" (6 topical creams and
+  // gels) is still filed under Oral Therapies. The 8 category names are fixed,
+  // so the owner picks the target; then add { category: "<slug>" } here and
+  // mirror it on the live rows in admin.
+};
+// Brand-level overrides, keyed by `${productId}::${brandName}`. `strengths`
+// here replaces the cleaned list verbatim (no product-level fallback); `pack`
+// replaces the product's pack. Mirror every entry on the live rows in admin
+// so a re-seed and the live catalogue agree.
+const BRAND_FIXES = {
+  // Packs read "Sildenafil & Dapoxetine"; the source had plain Sildenafil
+  // Citrate and fell back to the sildenafil-only strength list (25-250 mg).
+  // Cenforce-D's pack does not print a strength: "On request" until the owner
+  // confirms it. Extra Power's pack reads "Sildenafil 100mg & Dapoxetine 100mg".
+  "ed-medicines-sildenafil::Cenforce-D": {
+    molecule: "Sildenafil Citrate + Dapoxetine",
+    strengths: "On request",
+  },
+  "ed-medicines-sildenafil::Cenforce D Extra Power": {
+    molecule: "Sildenafil Citrate + Dapoxetine",
+    strengths: "100 mg + 100 mg",
+  },
+  // Pack sizes were stored as strengths ("1 % w/w (30 g)", "… ampoules"),
+  // adding Strength-facet options that are not strengths. Strength keeps the
+  // concentration; the pack moves to `pack`. The ivermectin COVILIFE cream
+  // ("30 g, 60 g, 100 g") is left as-is until the owner confirms its
+  // concentration.
+  "steroid-tablets-ivermectin::IVERHEAL": { strengths: "1 % w/w", pack: "30 g tube" },
+  "steroid-tablets-ivermectin::IVERHUMAN": { strengths: "1 % w/w", pack: "30 g tube" },
+  "steroid-tablets-ivermectin::IVER-ASH": { strengths: "1 % w/w", pack: "30 g tube" },
+  "steroid-tablets-ivermectin::IMROTAB": { strengths: "1 % w/w", pack: "30 g tube" },
+  "steroid-injections-levocarnitine::ZUBINET": { strengths: "1 g/5 ml", pack: "10-amp tray" },
+  "steroid-injections-levocarnitine::L-CARNIREL": { strengths: "2000 mg/5 ml", pack: "10-amp tray" },
+  "steroid-injections-levocarnitine::L-CARNIBOL": { strengths: "2000 mg/5 ml", pack: "10-amp tray" },
+  // The product-level pack "10-amp tray · multi-dose vial" merged two formats; LEVONEXX is the vial.
+  "steroid-injections-levocarnitine::LEVONEXX": { pack: "Multi-dose vial" },
+};
+// Targeted strength spellings that split Strength filter options.
+const STRENGTH_ALIASES = {
+  "250 MG": "250 mg",
+  "400 mg/mL vial": "400 mg/ml",
+  // Pack word dropped (the pack lives in `pack`; see BRAND_FIXES).
+  "2000 mg/5 ml ampoule": "2000 mg/5 ml",
+};
+
 const mapAvailability = (a) => (a === "made-to-order" ? "made-to-order" : "in-stock");
 
+function normStrength(s) {
+  const t = String(s).trim();
+  if (STRENGTH_ALIASES[t]) return STRENGTH_ALIASES[t];
+  // Lower-case mass/volume units only (MG, MCG, G, mL after a number or "/").
+  // IU is left untouched.
+  return t.replace(/(?<=\d\s?|\/)(mcg|mg|ml|g)\b/gi, (u) => u.toLowerCase());
+}
+
 function cleanStrengths(brand, product) {
-  const pick = (arr) => (arr || []).filter((s) => s && s !== "-" && String(s).trim());
+  const pick = (arr) => [
+    ...new Set((arr || []).filter((s) => s && s !== "-" && String(s).trim()).map(normStrength)),
+  ];
   let s = pick(brand.strengths);
   if (!s.length) s = pick(product.strengths);
   return s.join(", ") || "On request";
@@ -115,18 +184,26 @@ async function main() {
   const rows = [];
   const imgJobs = []; // { rowIndex, srcAbs, dest }
   let order = 0;
-  for (const product of catalog) {
-    const list = brands[product.id] || [];
+  let dupes = 0;
+  const seen = new Set(); // exact-duplicate guard: product + brand + strengths + image
+  for (const src of catalog) {
+    const list = brands[src.id] || [];
+    const product = { ...src, ...(PRODUCT_FIXES[src.id] || {}) };
     const cfg = CATS[product.category];
     for (const b of list) {
       const rep = repImage(b);
+      const fix = BRAND_FIXES[`${src.id}::${b.name}`] || {};
+      const strengths = fix.strengths ?? cleanStrengths(b, product);
+      const key = [src.id, b.name.trim().toLowerCase(), strengths, rep || ""].join("|");
+      if (seen.has(key)) { dupes++; continue; }
+      seen.add(key);
       const row = {
         category_id: catId[product.category] ?? null,
         name: b.name,
-        molecule: product.molecule,
+        molecule: fix.molecule ?? product.molecule,
         form: product.form || null,
-        strengths: cleanStrengths(b, product),
-        pack: product.pack || null,
+        strengths,
+        pack: (fix.pack ?? product.pack) || null,
         moq: product.moq || "On request",
         lead_time: product.leadTime || null,
         availability: mapAvailability(product.availability),
@@ -143,7 +220,7 @@ async function main() {
       }
     }
   }
-  console.log(`✓ Prepared ${rows.length} medicines; ${imgJobs.length} images to upload`);
+  console.log(`✓ Prepared ${rows.length} medicines (${dupes} exact duplicates skipped); ${imgJobs.length} images to upload`);
 
   // 4. upload images (concurrency pool, dedup by source)
   const uploaded = new Map(); // srcAbs -> dest

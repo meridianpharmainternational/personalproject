@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import logo from "@/app/assets/logo.png";
+import logoMark from "@/app/assets/logo-mark.png";
 import { site } from "@/lib/site";
 
 /**
- * Brand lockup: the circular emblem in a white chip + wordmark. `variant`
- * controls text colour for light (header) vs dark (footer) backgrounds.
+ * Brand lockup: the logo MARK (M + globe + swoosh + aircraft, cropped so it is
+ * legible at 40px) + a serif "MERIDIAN" wordmark echoing the logo.
+ * The full circular logo is only used large (footer), where its inner
+ * wordmark is readable.
  */
 export function Logo({
   variant = "light",
@@ -14,34 +16,14 @@ export function Logo({
   variant?: "light" | "dark";
   className?: string;
 }) {
-  const word = variant === "dark" ? "text-white" : "text-brand-900";
-  const sub = variant === "dark" ? "text-leaf-300" : "text-leaf-700";
-
   return (
-    <Link
-      href="/"
-      aria-label={`${site.fullName} — home`}
-      className={`group inline-flex items-center gap-2.5 ${className}`}
-    >
-      <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-soft ring-1 ring-black/5 transition group-hover:scale-105">
-        <Image
-          src={logo}
-          alt=""
-          width={44}
-          height={44}
-          className="h-10 w-10 object-contain"
-          priority
-        />
-      </span>
-      <span className="leading-tight">
-        <span
-          className={`block font-display text-lg font-extrabold tracking-tight ${word}`}
-        >
-          {site.name}
+    <Link href="/" className={`brand ${className}`} aria-label={`${site.fullName}, home`}>
+      <Image src={logoMark} alt="" className="brand-mark" priority />
+      <span>
+        <span className="brand-name" style={variant === "dark" ? { color: "#fff" } : undefined}>
+          MERIDIAN
         </span>
-        <span
-          className={`block text-[0.6rem] font-semibold uppercase tracking-[0.16em] ${sub}`}
-        >
+        <span className="brand-sub" style={variant === "dark" ? { color: "var(--leaf-300)" } : undefined}>
           Pharma International
         </span>
       </span>

@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CATALOG_TAG } from "@/lib/catalog";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -45,18 +46,39 @@ function toRow(d: MedicineInput) {
   };
 }
 
+/** Formats the admin form accepts (its file input's `accept`), by file extension. */
+const IMAGE_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+/** Vercel caps request bodies at about 4.5 MB; MedicineForm checks the same limit. */
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
+type UploadResult = { path: string | null; error?: string };
+
+/**
+ * Stores a product image. `path` is null when no file was chosen; `error` is
+ * set when a chosen file could not be stored, so callers can refuse to save
+ * the product without the image the admin picked.
+ */
 async function uploadImage(
   admin: ReturnType<typeof createAdminClient>,
   file: File,
-): Promise<string | null> {
-  if (!file || file.size === 0) return null;
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+): Promise<UploadResult> {
+  if (!file || file.size === 0) return { path: null };
+  // Re-check what the form checks: the browser's checks can be bypassed.
+  const ext = IMAGE_EXT[file.type];
+  if (!ext) return { path: null, error: "Images must be PNG, JPEG or WebP." };
+  if (file.size > MAX_IMAGE_BYTES) {
+    return { path: null, error: "Images must be 4 MB or smaller." };
+  }
   const path = `${crypto.randomUUID()}.${ext}`;
   const { error } = await admin.storage
     .from("medicine-images")
     .upload(path, file, { contentType: file.type, upsert: false });
-  if (error) return null;
-  return path;
+  if (error) return { path: null, error: error.message };
+  return { path };
 }
 
 export async function createMedicine(
@@ -70,8 +92,13 @@ export async function createMedicine(
 
   const admin = createAdminClient();
   const image = formData.get("image");
-  const image_path =
-    image instanceof File ? await uploadImage(admin, image) : null;
+  const upload: UploadResult =
+    image instanceof File ? await uploadImage(admin, image) : { path: null };
+  // Never save the product without the image the admin chose.
+  if (upload.error) {
+    return { ok: false, error: `Image upload failed: ${upload.error}` };
+  }
+  const image_path = upload.path;
 
   const { error } = await admin
     .from("medicines")
@@ -80,6 +107,7 @@ export async function createMedicine(
 
   revalidatePath("/admin/medicines");
   revalidatePath("/medicines");
+  revalidateTag(CATALOG_TAG); // refresh the cached public catalogue immediately
   redirect("/admin/medicines");
 }
 
@@ -95,10 +123,15 @@ export async function updateMedicine(
 
   const admin = createAdminClient();
   const image = formData.get("image");
-  const newImagePath =
+  const upload: UploadResult =
     image instanceof File && image.size > 0
       ? await uploadImage(admin, image)
-      : null;
+      : { path: null };
+  // Never save the changes without the replacement image the admin chose.
+  if (upload.error) {
+    return { ok: false, error: `Image upload failed: ${upload.error}` };
+  }
+  const newImagePath = upload.path;
 
   const row: Record<string, unknown> = {
     ...toRow(parsed.data),
@@ -111,6 +144,7 @@ export async function updateMedicine(
 
   revalidatePath("/admin/medicines");
   revalidatePath("/medicines");
+  revalidateTag(CATALOG_TAG); // refresh the cached public catalogue immediately
   revalidatePath(`/medicines/${id}`);
   redirect("/admin/medicines");
 }
@@ -121,4 +155,5 @@ export async function deleteMedicine(id: string): Promise<void> {
   await admin.from("medicines").delete().eq("id", id);
   revalidatePath("/admin/medicines");
   revalidatePath("/medicines");
+  revalidateTag(CATALOG_TAG); // refresh the cached public catalogue immediately
 }

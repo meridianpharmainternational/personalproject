@@ -1,388 +1,538 @@
-import Image from "next/image";
+import type { CSSProperties } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
-import type { ComponentType, ReactNode } from "react";
 import {
   ArrowRight,
-  Check,
-  ShieldCheck,
-  Globe2,
-  Package,
-  CalendarClock,
-  Pill,
-  Syringe,
-  HeartPulse,
-  Stethoscope,
-  Truck,
+  Award,
+  BadgeCheck,
   FileCheck2,
-  Headset,
-  MapPin,
+  Mail,
+  MessageCircle,
+  Phone,
+  ShieldCheck,
+  Truck,
 } from "lucide-react";
-import logo from "@/app/assets/logo.png";
-import { getCategories, getMedicines } from "@/lib/catalog";
-import { MedicineCard } from "@/components/medicine-card";
-import { Counter } from "@/components/counter";
-import { WorldMap } from "@/components/world-map";
-import { EnquiryButton } from "@/components/enquiry/enquiry-button";
-import { site } from "@/lib/site";
+import { HeroChart } from "@/components/hero-chart";
+import { OpenEnquiryButton } from "@/components/enquiry/open-enquiry-button";
+import { HeroSearch } from "@/components/home/hero-search";
+import { ProductRail, type RailTab } from "@/components/home/product-rail";
+import {
+  getCatalogItems,
+  getCatalogSummary,
+  varied,
+  type CatalogItem,
+  type CatalogSummary,
+  type MoleculeCount,
+} from "@/lib/catalog";
+import { DOCS } from "@/lib/docs";
+import { contact, site, whatsappLink } from "@/lib/site";
 
-const CAT_TONES = ["g1", "g3", "g2", "g6", "g4", "g5"] as const;
-const CAT_ICONS = [Pill, Syringe, HeartPulse, Stethoscope, Package, ShieldCheck];
+/* ------------------------------------------------------------------ helpers */
 
-const FEATURES: {
-  icon: ComponentType<{ className?: string }>;
-  tone: string;
-  title: string;
-  body: string;
-}[] = [
-  { icon: ShieldCheck, tone: "g1", title: "Quality assured", body: "GMP-grade sourcing with Certificates of Analysis on every batch." },
-  { icon: FileCheck2, tone: "g3", title: "Full documentation", body: "CoA, COPP, and export dossiers prepared for your market." },
-  { icon: Truck, tone: "g2", title: "Worldwide logistics", body: "Reliable lead times with cold-chain and neutral packing options." },
-  { icon: Headset, tone: "g6", title: "Responsive support", body: "A dedicated export desk that replies within one business day." },
+type Icon = typeof ShieldCheck;
+
+const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
+const numberWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const pad = (n: number) => String(n).padStart(2, "0");
+
+const RAIL_N = 8;
+
+/** Server-picked rail sets: "All" interleaves the categories; each tab sends at most 8 items. */
+function buildRail(items: CatalogItem[], summary: CatalogSummary): RailTab[] {
+  const byCat = new Map<string, CatalogItem[]>();
+  for (const it of items) {
+    const slug = it.category?.slug;
+    if (!slug) continue;
+    const list = byCat.get(slug);
+    if (list) list.push(it);
+    else byCat.set(slug, [it]);
+  }
+
+  const catTabs: RailTab[] = summary.categories.map((c) => ({
+    key: c.slug,
+    label: c.name,
+    count: c.count,
+    href: `/medicines?category=${encodeURIComponent(c.slug)}`,
+    viewAllLabel: `View all ${c.count} ${c.name}`,
+    items: varied(byCat.get(c.slug) ?? [], RAIL_N),
+  }));
+
+  const interleaved: CatalogItem[] = [];
+  for (let i = 0; i < RAIL_N; i++) {
+    for (const t of catTabs) if (t.items[i]) interleaved.push(t.items[i]);
+  }
+
+  return [
+    {
+      key: "__all",
+      label: "All",
+      srSuffix: " products",
+      count: summary.total,
+      href: "/medicines",
+      viewAllLabel: `View all ${summary.total} products`,
+      items: varied([...interleaved, ...items], RAIL_N),
+    },
+    ...catTabs,
+  ];
+}
+
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+/** Molecules grouped by first letter (A–Z, then "#" for anything else). */
+function azGroups(molecules: MoleculeCount[]) {
+  const map = new Map<string, MoleculeCount[]>();
+  for (const m of molecules) {
+    const ch = m.name.trim().normalize("NFD").charAt(0).toUpperCase();
+    const key = /^[A-Z]$/.test(ch) ? ch : "#";
+    const list = map.get(key);
+    if (list) list.push(m);
+    else map.set(key, [m]);
+  }
+  const keys = [...LETTERS.filter((l) => map.has(l)), ...(map.has("#") ? ["#"] : [])];
+  return keys.map((k) => ({ key: k, id: k === "#" ? "az-other" : `az-${k}`, list: map.get(k)! }));
+}
+
+function certIcon(name: string): Icon {
+  if (/gmp/i.test(name)) return ShieldCheck;
+  if (/iso/i.test(name)) return BadgeCheck;
+  if (/gdp|distribution/i.test(name)) return Truck;
+  return Award;
+}
+
+const STEPS = [
+  { title: "Add products", body: "From any card, search result or table row. Your list stays on this device while you browse." },
+  { title: "Send one enquiry", body: "Strength and packs are optional. Add your details once for the whole list." },
+  { title: "Receive your quotation", body: "Pricing, availability and documentation in one reply." },
 ];
 
-const REGIONS = ["Asia", "Africa", "Middle East", "Latin America", "CIS", "Europe"];
+/* ----------------------------------------------------------------- metadata */
+
+// Strict reads: if the catalogue can't be loaded during an ISR regeneration,
+// the render throws and Next keeps serving the last good page.
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getCatalogSummary({ strict: true });
+  const description =
+    s.total > 0
+      ? `${site.fullName} exports ${s.total} pharmaceutical products across ${s.categoryCount} categories and ${s.moleculeCount} molecules. Build one enquiry list and receive pricing, availability and documentation in a single reply.`
+      : site.description;
+  return { description, openGraph: { description } };
+}
+
+/* --------------------------------------------------------------------- page */
 
 export default async function HomePage() {
-  const [categories, medicines] = await Promise.all([
-    getCategories(),
-    getMedicines(),
+  const [summary, items] = await Promise.all([
+    getCatalogSummary({ strict: true }),
+    getCatalogItems({ strict: true }),
   ]);
-  const featured = medicines.slice(0, 6);
+  const { total, categoryCount, moleculeCount, categories, molecules, popularMolecules } = summary;
+
+  const hasCatalog = total > 0;
+  const hasCats = categories.length > 0;
+  const hasMolecules = molecules.length > 0;
+  const railTabs = hasCatalog ? buildRail(items, summary) : [];
+  const hasRail = railTabs.length > 0 && railTabs[0].items.length > 0;
+  const groups = azGroups(molecules);
+  const groupIds = new Map(groups.map((g) => [g.key, g.id]));
+
+  // Section index numbers run 01, 02, … over the sections actually shown.
+  let n = 0;
+  const next = () => pad(++n);
+  const idxCats = hasCats ? next() : "";
+  const idxRange = hasRail ? next() : "";
+  const idxAz = hasMolecules ? next() : "";
+  const idxHow = next();
+  const idxQuality = next();
+  const idxCta = next();
+
+  const trust: { label: string; Icon: Icon }[] = [
+    ...site.certifications.map((c) => ({ label: c, Icon: certIcon(c) })),
+    { label: "COA & COPP on request", Icon: FileCheck2 },
+  ];
+
+  const wa = whatsappLink();
+  const contactRows: { key: string; href: string; label: string; sr: string; Icon: Icon; external?: boolean }[] = [];
+  if (contact.email) contactRows.push({ key: "email", href: `mailto:${contact.email}`, label: contact.email, sr: "Email: ", Icon: Mail });
+  if (contact.phoneHref && contact.phone) contactRows.push({ key: "phone", href: contact.phoneHref, label: contact.phone, sr: "Phone: ", Icon: Phone });
+  if (wa) contactRows.push({ key: "whatsapp", href: wa, label: "WhatsApp", sr: "Message us on ", Icon: MessageCircle, external: true });
 
   return (
-    <div className="overflow-x-clip">
-      {/* ---------------- HERO ---------------- */}
-      <section className="bg-mesh relative">
-        <div className="pointer-events-none absolute inset-0 bg-plus opacity-90" />
-        <div className="container-page relative grid gap-12 pb-16 pt-14 md:grid-cols-2 md:items-center lg:pb-24 lg:pt-20">
-          <div className="animate-fade-up">
-            <span className="eyebrow">
-              <span className="dot" />
-              {site.certifications.join(" · ")}
-            </span>
-            <h1 className="mt-5 font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-brand-900 sm:text-5xl lg:text-[3.4rem]">
-              Exporting <span className="gradient-text">quality medicines,</span>{" "}
-              worldwide.
-            </h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
-              {site.description}
+    <>
+      {/* ------------------------------------------------------------ HERO */}
+      <section className="hero bg-columns" aria-labelledby="home-title">
+        <HeroChart />
+        <div className="container-grid grid-12 items-center">
+          <div className="col-span-full lg:col-span-7">
+            <p className="kicker">
+              <span aria-hidden="true">000° — </span>Pharmaceutical exports
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/medicines" className="btn btn-primary px-5 py-3">
-                Browse medicines <ArrowRight className="h-4 w-4" />
-              </Link>
-              <EnquiryButton className="btn btn-outline px-5 py-3" label="Get a quote" />
-            </div>
-            <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2">
-              {["GMP-grade sourcing", "Full export documentation", "Worldwide logistics"].map(
-                (t) => (
-                  <li
-                    key={t}
-                    className="flex items-center gap-2 text-sm font-medium text-slate-600"
-                  >
-                    <Check className="h-4 w-4 text-leaf-600" />
-                    {t}
-                  </li>
-                ),
+            <h1 id="home-title" className="text-display mt-5">
+              Global access to better health.
+            </h1>
+            <p className="lead mt-6">
+              {hasCatalog ? (
+                <>
+                  {plural(total, "product", "products")} across {plural(categoryCount, "category", "categories")} and{" "}
+                  {plural(moleculeCount, "molecule", "molecules")}, supplied worldwide. Build one enquiry list and our
+                  export team replies with pricing, availability and documents.
+                </>
+              ) : (
+                <>
+                  Pharmaceutical products supplied worldwide. Build one enquiry list and our export team replies with
+                  pricing, availability and documents.
+                </>
               )}
-            </ul>
+            </p>
+
+            <HeroSearch categories={categories.map((c) => ({ slug: c.slug, name: c.name }))} />
+
+            {popularMolecules.length > 0 && (
+              <p className="hero-popular">
+                <span>Popular:</span>
+                {popularMolecules.map((m) => (
+                  <Link key={m.name} href={`/medicines?molecule=${encodeURIComponent(m.name)}`}>
+                    {m.name}
+                  </Link>
+                ))}
+              </p>
+            )}
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link className="btn btn-inverse btn-lg w-full sm:w-auto" href="/medicines">
+                {hasCatalog ? `Browse all ${total} products` : "Browse the catalogue"}
+                <ArrowRight aria-hidden strokeWidth={1.75} className="icon-trail" />
+              </Link>
+              <a className="btn btn-outline-inverse btn-lg w-full sm:w-auto" href="#how">
+                How enquiries work
+              </a>
+            </div>
           </div>
 
-          <div
-            className="relative hidden animate-fade-up md:block"
-            style={{ animationDelay: "0.15s" }}
-          >
-            <div className="absolute inset-0 -m-10 rounded-full bg-gradient-to-br from-brand-200/40 via-teal-300/30 to-leaf-200/40 blur-3xl" />
-            <div className="relative mx-auto flex aspect-square max-w-md items-center justify-center rounded-[2.5rem] border border-border bg-white/70 shadow-soft-lg backdrop-blur">
-              <Image
-                src={logo}
-                alt={site.fullName}
-                width={380}
-                height={380}
-                className="h-[78%] w-[78%] animate-float object-contain"
-                priority
-              />
-            </div>
-            <div className="float-a absolute -left-3 top-10 flex items-center gap-3 rounded-2xl border border-border bg-white/95 px-4 py-3 shadow-soft">
-              <ShieldCheck className="h-7 w-7 text-leaf-600" />
-              <div>
-                <p className="text-xs text-slate-500">Compliance</p>
-                <p className="text-sm font-bold text-brand-900">WHO-GMP Certified</p>
+          {hasCatalog && (
+            <dl
+              className="spec-panel corner-ticks col-span-full mt-4 lg:col-span-4 lg:col-start-9 lg:mt-0"
+              aria-label="Catalogue at a glance"
+            >
+              <div className="spec-row">
+                <dt className="spec-key">Products</dt>
+                <dd className="spec-val">{total}</dd>
               </div>
-            </div>
-            <div className="float-b absolute -right-2 bottom-12 flex items-center gap-3 rounded-2xl border border-border bg-white/95 px-4 py-3 shadow-soft">
-              <Globe2 className="h-7 w-7 text-brand-600" />
-              <div>
-                <p className="text-xs text-slate-500">Shipping to</p>
-                <p className="text-sm font-bold text-brand-900">
-                  {site.stats.countries}+ Countries
-                </p>
+              <div className="spec-row">
+                <dt className="spec-key">Molecules</dt>
+                <dd className="spec-val">{moleculeCount}</dd>
               </div>
-            </div>
-          </div>
+              <div className="spec-row">
+                <dt className="spec-key">Categories</dt>
+                <dd className="spec-val">{categoryCount}</dd>
+              </div>
+              {site.markets.confirmed && (
+                <div className="spec-row">
+                  <dt className="spec-key">Markets</dt>
+                  <dd className="spec-val">{site.markets.count}+</dd>
+                </div>
+              )}
+            </dl>
+          )}
         </div>
+        <div className="scale-rule absolute inset-x-0 bottom-0" aria-hidden="true" />
       </section>
 
-      {/* ---------------- CATEGORIES ---------------- */}
-      {categories.length > 0 && (
-        <section className="container-page py-16 lg:py-20">
-          <SectionHeading
-            eyebrow="Our range"
-            title={
-              <>
-                Product <span className="gradient-text">categories</span>
-              </>
-            }
-            subtitle="Browse by therapeutic area, then send an enquiry for pricing and availability."
-          />
-          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map((c, i) => {
-              const Icon = CAT_ICONS[i % CAT_ICONS.length];
-              return (
-                <Link
-                  key={c.id}
-                  href={`/medicines?category=${c.slug}`}
-                  className={`tile group p-6 reveal ${i ? `reveal-d${Math.min(i, 3)}` : ""}`}
-                >
-                  <span className={`tile-icon ${CAT_TONES[i % CAT_TONES.length]}`}>
-                    <Icon className="h-6 w-6" />
-                  </span>
-                  <h3 className="mt-4 font-display text-lg font-bold text-brand-900">
-                    {c.name}
-                  </h3>
-                  {c.blurb && (
-                    <p className="mt-1.5 line-clamp-2 text-sm text-slate-600">
-                      {c.blurb}
-                    </p>
-                  )}
-                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand-600">
-                    Explore{" "}
-                    <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
-                  </span>
+      {/* ----------------------------------------------------- TRUST STRIP */}
+      <div className="container-grid">
+        <ul
+          className="trust-strip"
+          aria-label="Certifications and documents"
+          style={{ "--trust-n": trust.length } as CSSProperties}
+        >
+          {trust.map(({ label, Icon }) => (
+            <li key={label} className="trust-item">
+              <Icon aria-hidden strokeWidth={1.75} />
+              {label}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* ------------------------------------------------- 01 CATEGORIES */}
+      {hasCats && (
+        <section className="section" aria-labelledby="home-categories">
+          <div className="container-grid">
+            <header className="section-head reveal">
+              <p className="section-index">
+                <span className="n">{idxCats}</span> — Categories{" "}
+                <span className="total">{plural(total, "product", "products")}</span>
+              </p>
+              <div className="section-title">
+                <h2 id="home-categories">
+                  {numberWord(categoryCount)} {categoryCount === 1 ? "category" : "categories"}. One catalogue.
+                </h2>
+              </div>
+              <div className="section-aside">
+                <p className="lead">
+                  Start from a therapeutic area. Each tile{" "}
+                  <span className="hidden lg:inline">lists its leading molecules and </span>
+                  <span className="lg:hidden">shows </span>
+                  how many products it holds.
+                </p>
+                <Link className="link-arrow mt-3" href="/medicines">
+                  All {plural(total, "product", "products")}
+                  <ArrowRight aria-hidden strokeWidth={1.75} />
                 </Link>
-              );
-            })}
+              </div>
+            </header>
+
+            <ul className="cat-grid reveal reveal-d1">
+              {categories.map((c, i) => (
+                <li key={c.slug} className="flex">
+                  <Link href={`/medicines?category=${encodeURIComponent(c.slug)}`} className="cat-tile flex-1">
+                    <span className="cat-tile-index" aria-hidden="true">
+                      {pad(i + 1)}
+                      <ArrowRight strokeWidth={1.75} />
+                    </span>
+                    <span className="cat-tile-name">{c.name}</span>
+                    {c.blurb && <span className="cat-tile-blurb">{c.blurb}</span>}
+                    {c.topMolecules.length > 0 && (
+                      <span className="cat-tile-molecules">{c.topMolecules.slice(0, 3).join(" · ")}</span>
+                    )}
+                    <span className="cat-tile-foot">{plural(c.count, "product", "products")}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
       )}
 
-      {/* ---------------- FEATURED MEDICINES ---------------- */}
-      <section className="bg-brand-50/40 py-16 lg:py-20">
-        <div className="container-page">
-          <div className="flex items-end justify-between gap-4">
-            <SectionHeading
-              eyebrow="Catalog"
-              title={
-                <>
-                  Featured <span className="gradient-text">medicines</span>
-                </>
-              }
-              subtitle="A selection from our portfolio."
-            />
-            <Link
-              href="/medicines"
-              className="btn btn-outline hidden shrink-0 sm:inline-flex"
-            >
-              View all <ArrowRight className="h-4 w-4" />
-            </Link>
+      {/* ---------------------------------------------------- 02 PRODUCTS */}
+      {hasRail && (
+        <section className="section surface-paper" aria-labelledby="home-range">
+          <div className="container-grid">
+            <header className="section-head reveal">
+              <p className="section-index">
+                <span className="n">{idxRange}</span> — Products <span className="total">{total} in range</span>
+              </p>
+              <div className="section-title">
+                <h2 id="home-range">Browse the range</h2>
+              </div>
+              <div className="section-aside">
+                <p className="lead">Add any product to your enquiry list and send them all at once.</p>
+              </div>
+            </header>
+            <ProductRail tabs={railTabs} />
           </div>
+        </section>
+      )}
 
-          {featured.length > 0 ? (
-            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {featured.map((m, i) => (
-                <div key={m.id} className={`reveal ${i % 3 ? `reveal-d${i % 3}` : ""}`}>
-                  <MedicineCard m={m} />
+      {/* ----------------------------------------------- 03 MOLECULES A–Z */}
+      {hasMolecules && (
+        <section className="section bg-columns" aria-labelledby="home-molecules">
+          <div className="container-grid">
+            <header className="section-head reveal">
+              <p className="section-index">
+                <span className="n">{idxAz}</span> — Molecules A–Z{" "}
+                <span className="total">{plural(moleculeCount, "molecule", "molecules")}</span>
+              </p>
+              <div className="section-title">
+                <h2 id="home-molecules">Find by active ingredient</h2>
+              </div>
+              <div className="section-aside">
+                <p className="lead">
+                  Every brand is listed under its molecule, so you can compare the options for one active ingredient.
+                </p>
+              </div>
+            </header>
+
+            <nav className="az-jump" aria-label="Molecules by first letter">
+              {LETTERS.map((l) => {
+                const id = groupIds.get(l);
+                return id ? (
+                  <a key={l} href={`#${id}`}>
+                    {l}
+                  </a>
+                ) : (
+                  <span key={l} role="link" aria-disabled="true">
+                    {l}
+                  </span>
+                );
+              })}
+              {groupIds.has("#") && (
+                <a href="#az-other">#</a>
+              )}
+            </nav>
+
+            <div className="az-index">
+              {groups.map((g) => (
+                <div key={g.key} id={g.id} className="az-group">
+                  <h3 className="az-letter text-lg">{g.key}</h3>
+                  <ul>
+                    {g.list.map((m) => (
+                      <li key={m.name}>
+                        <Link className="az-link" href={`/medicines?molecule=${encodeURIComponent(m.name)}`}>
+                          <span className="min-w-0">{m.name}</span>
+                          <span className="count">
+                            <span className="sr-only">, </span>
+                            {m.count}
+                            <span className="sr-only"> {m.count === 1 ? "product" : "products"}</span>
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="card mt-10 p-12 text-center">
-              <p className="text-slate-600">
-                Our catalog is being prepared.{" "}
-                <Link href="/contact" className="font-semibold text-brand-600 hover:underline">
-                  Send an enquiry
-                </Link>{" "}
-                and we&rsquo;ll help you source what you need.
+          </div>
+        </section>
+      )}
+
+      {/* ------------------------------------------- 04 HOW ENQUIRY WORKS */}
+      <section id="how" className="section surface-dark" aria-labelledby="home-how">
+        <div className="container-grid">
+          <header className="section-head reveal">
+            <p className="section-index">
+              <span className="n">{idxHow}</span> — How enquiry works
+            </p>
+            <div className="section-title">
+              <h2 id="home-how">One list. One enquiry. One quotation.</h2>
+            </div>
+            <div className="section-aside">
+              <p className="lead">
+                Build the list as you browse and send it when you are ready. The export team answers the whole list in
+                one reply.
               </p>
             </div>
-          )}
-        </div>
-      </section>
+          </header>
 
-      {/* ---------------- STATS ---------------- */}
-      <section className="container-page py-16 lg:py-20">
-        <div className="gradient-border reveal">
-          <div className="rounded-[calc(1.5rem-2px)] bg-white p-8 sm:p-12">
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-              <Stat icon={<Package className="h-6 w-6" />} tone="g1" target={site.stats.products} suffix="+" label="Products in portfolio" />
-              <Stat icon={<Globe2 className="h-6 w-6" />} tone="g3" target={site.stats.countries} suffix="+" label="Countries served" />
-              <Stat icon={<CalendarClock className="h-6 w-6" />} tone="g2" target={site.stats.years} suffix="+" label="Years of experience" />
-            </div>
+          <ol className="steps reveal reveal-d1">
+            {STEPS.map((s, i) => (
+              <li key={s.title} className="step">
+                <p className="step-n">{pad(i + 1)}</p>
+                <h3 className="mt-4">{s.title}</h3>
+                <p className="mt-2 max-w-measure">{s.body}</p>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-10 flex flex-wrap gap-3 reveal reveal-d2">
+            <OpenEnquiryButton className="btn btn-enquire btn-lg w-full sm:w-auto" />
+            <Link className="btn btn-outline-inverse btn-lg w-full sm:w-auto" href="/contact">
+              Talk to the exports team
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* ---------------- GLOBAL REACH ---------------- */}
-      <section className="relative overflow-hidden bg-brand-900 py-16 text-white lg:py-24">
-        <div className="pointer-events-none absolute inset-0 bg-plus opacity-[0.12]" />
-        <div className="container-page relative grid gap-12 lg:grid-cols-2 lg:items-center">
-          <div className="reveal">
-            <span className="eyebrow border-white/20 bg-white/10 text-white">
-              <span className="dot" />
-              Global reach
-            </span>
-            <h2 className="mt-4 font-display text-3xl font-extrabold text-white sm:text-4xl">
-              Trusted delivery to{" "}
-              <span className="text-leaf-400">{site.stats.countries}+ countries</span>
-            </h2>
-            <p className="mt-4 max-w-lg text-brand-200">
-              From our facilities to your market — with cold-chain options, full
-              documentation, and dependable lead times.
+      {/* -------------------------------------- 05 QUALITY & DOCUMENTATION */}
+      <section className="section" aria-labelledby="home-quality">
+        <div className="container-grid grid-12 gap-y-10">
+          <div className="col-span-full lg:col-span-5 reveal">
+            <p className="section-index">
+              <span className="n">{idxQuality}</span> — Quality
             </p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              {REGIONS.map((r) => (
-                <span
-                  key={r}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-sm"
-                >
-                  <MapPin className="h-3.5 w-3.5 text-leaf-400" />
-                  {r}
-                </span>
-              ))}
-            </div>
+            <h2 id="home-quality" className="mt-6">
+              Quality &amp; documentation
+            </h2>
+            <p className="mt-4 max-w-measure">
+              Import and registration files need the right paperwork. Tell us what your market requires and the export
+              team confirms, product by product, which certificates and documents come with your quotation.
+            </p>
+            <Link className="link-arrow mt-4" href="/contact">
+              Ask about a document
+              <ArrowRight aria-hidden strokeWidth={1.75} />
+            </Link>
           </div>
-          <div className="reveal reveal-d1 relative">
-            <WorldMap className="h-auto w-full text-brand-300/70" />
-            <Pin left="30%" top="38%" />
-            <Pin left="62%" top="30%" delay="0.8s" />
-            <Pin left="48%" top="56%" delay="1.6s" />
+
+          <div className="col-span-full overflow-x-auto lg:col-span-6 lg:col-start-7 reveal reveal-d1">
+            <table className="ledger">
+              <caption className="sr-only">Certifications and documents</caption>
+              <thead>
+                <tr>
+                  {/* Document keeps the ledger's 36% th width; the other two must opt out of it
+                      (.ledger th outranks a plain w-* utility), or three 36% columns overflow. */}
+                  <th scope="col">Document</th>
+                  <th scope="col" className="hidden !w-auto sm:table-cell">
+                    Scope
+                  </th>
+                  <th scope="col" className="!w-auto">
+                    Availability
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {DOCS.map((d) => (
+                  <tr key={d.name}>
+                    <th scope="row" className="whitespace-nowrap !text-fg-strong">
+                      {d.name}
+                    </th>
+                    <td className="hidden !text-fg sm:table-cell">{d.scope}</td>
+                    <td className="whitespace-nowrap">{d.availability}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      {/* ---------------- WHY MERIDIAN ---------------- */}
-      <section className="container-page py-16 lg:py-20">
-        <SectionHeading
-          align="center"
-          eyebrow="Why Meridian"
-          title={
-            <>
-              Built for <span className="gradient-text">reliable sourcing</span>
-            </>
-          }
-          subtitle="Everything international buyers need in one dependable partner."
-        />
-        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map((f, i) => {
-            const Icon = f.icon;
-            return (
-              <div
-                key={f.title}
-                className={`tile p-6 reveal ${i ? `reveal-d${Math.min(i, 3)}` : ""}`}
-              >
-                <span className={`tile-icon ${f.tone}`}>
-                  <Icon className="h-6 w-6" />
-                </span>
-                <h3 className="mt-4 font-display text-lg font-bold text-brand-900">
-                  {f.title}
-                </h3>
-                <p className="mt-1.5 text-sm text-slate-600">{f.body}</p>
+      {/* ---------------------------------------------------------- 06 CTA */}
+      <section className="section surface-paper bg-mercator" aria-label="Start your enquiry">
+        <div className="container-grid">
+          <p className="section-index mb-10 reveal lg:mb-14">
+            <span className="n">{idxCta}</span> — Next step
+          </p>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="panel corner-ticks flex flex-col gap-4 lg:p-8 reveal">
+              <h2 className="font-sans text-h3">Have a product list already?</h2>
+              <p className="max-w-measure">
+                Paste it and we&rsquo;ll match it to the catalogue. Anything we don&rsquo;t list goes in as a custom
+                request.
+              </p>
+              <div className="mt-auto pt-2">
+                <OpenEnquiryButton
+                  className="btn btn-enquire btn-lg w-full sm:w-auto"
+                  label="Paste a list"
+                  showCount={false}
+                  paste
+                />
               </div>
-            );
-          })}
-        </div>
-      </section>
+            </div>
 
-      {/* ---------------- CTA ---------------- */}
-      <section className="container-page pb-20">
-        <div
-          className="relative overflow-hidden rounded-3xl px-6 py-14 text-center sm:px-12"
-          style={{ backgroundImage: "var(--brand-gradient)" }}
-        >
-          <div className="pointer-events-none absolute inset-0 bg-plus opacity-10" />
-          <div className="reveal relative mx-auto max-w-2xl">
-            <h2 className="font-display text-3xl font-extrabold text-white sm:text-4xl">
-              Ready to source your next order?
-            </h2>
-            <p className="mt-3 text-white/85">
-              Send us your requirement and destination market — we&rsquo;ll respond
-              with pricing, availability, and documentation.
-            </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <EnquiryButton
-                className="btn bg-white px-6 py-3 text-brand-800 hover:bg-brand-50"
-                label="Get a quote"
-              />
-              <Link
-                href="/medicines"
-                className="btn border border-white/40 px-6 py-3 text-white hover:bg-white/10"
-              >
-                Browse medicines
-              </Link>
+            <div className="panel flex flex-col gap-4 lg:p-8 reveal reveal-d1">
+              <h2 className="font-sans text-h3">Talk to the export desk</h2>
+              <p className="max-w-measure">
+                Questions about registration, packaging or lead times? Send them with your list, or contact the export
+                team directly.
+              </p>
+              {contactRows.length > 0 && (
+                <ul className="border-t border-rule">
+                  {contactRows.map(({ key, href, label, sr, Icon, external }) => (
+                    <li key={key} className="border-b border-rule">
+                      <a
+                        href={href}
+                        className="flex min-h-tap items-center gap-3 py-2 font-medium text-navy-900 underline decoration-transparent underline-offset-4 hover:decoration-current"
+                        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                      >
+                        <Icon aria-hidden strokeWidth={1.75} className="h-5 w-5 flex-none text-navy-700" />
+                        <span className="min-w-0 break-words">
+                          <span className="sr-only">{sr}</span>
+                          {label}
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-auto pt-2">
+                <Link className="btn btn-secondary btn-lg w-full sm:w-auto" href="/contact">
+                  {contactRows.length > 0 ? "Use the contact form" : "Contact the export desk"}
+                  <ArrowRight aria-hidden strokeWidth={1.75} className="icon-trail" />
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       </section>
-    </div>
-  );
-}
-
-function SectionHeading({
-  eyebrow,
-  title,
-  subtitle,
-  align = "left",
-}: {
-  eyebrow: string;
-  title: ReactNode;
-  subtitle?: string;
-  align?: "left" | "center";
-}) {
-  return (
-    <div className={`reveal max-w-2xl ${align === "center" ? "mx-auto text-center" : ""}`}>
-      <span className="eyebrow">
-        <span className="dot" />
-        {eyebrow}
-      </span>
-      <h2 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-brand-900 sm:text-4xl">
-        {title}
-      </h2>
-      {subtitle && <p className="mt-3 text-slate-600">{subtitle}</p>}
-    </div>
-  );
-}
-
-function Stat({
-  icon,
-  tone,
-  target,
-  suffix,
-  label,
-}: {
-  icon: ReactNode;
-  tone: string;
-  target: number;
-  suffix?: string;
-  label: string;
-}) {
-  return (
-    <div className="text-center">
-      <span className={`tile-icon ${tone} mx-auto`}>{icon}</span>
-      <p className="stat-value mt-4 font-display text-4xl sm:text-5xl">
-        <Counter target={target} suffix={suffix} />
-      </p>
-      <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-brand-800">
-        {label}
-      </p>
-    </div>
-  );
-}
-
-function Pin({ left, top, delay }: { left: string; top: string; delay?: string }) {
-  return (
-    <span
-      className="absolute h-2.5 w-2.5 rounded-full bg-leaf-400"
-      style={{ left, top, animation: "ping 2.5s ease-out infinite", animationDelay: delay }}
-    />
+    </>
   );
 }

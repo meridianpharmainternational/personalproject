@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { adminGetCategories, adminGetMedicine } from "@/lib/admin/data";
 import { MedicineForm } from "@/components/admin/medicine-form";
 
@@ -20,21 +20,42 @@ export default async function EditMedicinePage({
 
   return (
     <div>
-      <Link
-        href="/admin/medicines"
-        className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-800"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to medicines
-      </Link>
-      <div className="mt-4">
-        <span className="eyebrow">
-          <span className="dot" />
-          Editing
-        </span>
-        <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight text-brand-900 sm:text-3xl">
-          Edit <span className="gradient-text">{medicine.name}</span>
-        </h2>
-      </div>
+      <nav aria-label="Breadcrumb">
+        <ol className="crumbs">
+          <li>
+            <Link href="/admin">Dashboard</Link>
+          </li>
+          <li>
+            <Link href="/admin/medicines">Medicines</Link>
+          </li>
+          <li aria-current="page">Edit</li>
+        </ol>
+      </nav>
+
+      <header className="mt-2 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="kicker">Editing</p>
+          <h1 className="mt-2 break-words text-h2">{medicine.name}</h1>
+          <p className="mt-3 flex flex-wrap items-center gap-2">
+            {medicine.is_active ? (
+              <span className="badge badge-new">
+                <span aria-hidden="true" className="h-2 w-2 rounded-sm bg-navy-900" />
+                Active
+              </span>
+            ) : (
+              <span className="badge badge-mto">Hidden</span>
+            )}
+            {medicine.category?.name && <span className="badge">{medicine.category.name}</span>}
+          </p>
+        </div>
+        {medicine.is_active && (
+          <Link href={`/medicines/${medicine.id}`} className="btn btn-ghost btn-sm">
+            View on site
+            <ArrowUpRight aria-hidden="true" />
+          </Link>
+        )}
+      </header>
+
       <div className="mt-8">
         <MedicineForm categories={categories} medicine={medicine} />
       </div>

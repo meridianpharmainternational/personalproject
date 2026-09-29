@@ -1,125 +1,156 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Mail, Phone, MapPin, ShieldCheck } from "lucide-react";
-import { Logo } from "@/components/logo";
-import { site, whatsappLink } from "@/lib/site";
+import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import logo from "@/app/assets/logo.png";
+import type { NavData } from "@/components/category-bar";
+import { OpenEnquiryButton } from "@/components/enquiry/open-enquiry-button";
+import { contact, site, whatsappLink } from "@/lib/site";
 
-export function SiteFooter() {
+export function SiteFooter({ nav }: { nav: NavData }) {
   const year = new Date().getFullYear();
   const wa = whatsappLink();
+  // A total of 0 means the catalogue couldn't load: show no counts rather than "0".
+  const showCounts = nav.total > 0;
 
   return (
-    <footer className="relative mt-20 overflow-hidden bg-brand-900 text-brand-100">
-      <div className="h-1 w-full bg-gradient-to-r from-brand-500 via-teal-500 to-leaf-500" />
+    <footer className="site-footer bg-columns">
+      <div className="scale-rule" aria-hidden />
 
-      <div className="container-page grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="sm:col-span-2">
-          <Logo variant="dark" />
-          <p className="mt-5 max-w-md text-sm leading-relaxed text-brand-200">
-            {site.description}
-          </p>
-          <ul className="mt-5 space-y-2 text-sm">
-            <li className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-leaf-400" />
-              <a href={`mailto:${site.email}`} className="footer-link">
-                {site.email}
+      <div className="container-grid py-16">
+        {/* Closing row */}
+        <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
+          <h2 className="lg:col-span-7">Have a product list? Send it in one enquiry.</h2>
+          <div className="flex flex-wrap gap-3 lg:col-span-5 lg:justify-end">
+            <OpenEnquiryButton className="btn btn-enquire btn-lg" label="Open enquiry list" />
+            {contact.email ? (
+              <a className="btn btn-outline-inverse btn-lg" href={`mailto:${contact.email}`}>
+                Email the exports team
               </a>
-            </li>
-            <li className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-leaf-400" /> {site.phone}
-            </li>
-            <li className="flex items-start gap-2">
-              <MapPin className="mt-0.5 h-4 w-4 text-leaf-400" />
-              <span className="text-brand-200">{site.address}</span>
-            </li>
-          </ul>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {site.certifications.map((c) => (
-              <span
-                key={c}
-                className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold text-white"
-              >
-                <ShieldCheck className="h-3.5 w-3.5 text-leaf-400" />
-                {c}
-              </span>
-            ))}
+            ) : (
+              <Link className="btn btn-outline-inverse btn-lg" href="/contact">
+                Contact the exports team
+              </Link>
+            )}
           </div>
         </div>
 
-        <FooterCol title="Explore" links={site.nav} />
-        <FooterCol title="Legal" links={site.legal} />
+        <div className="scale-rule mt-12" aria-hidden />
 
-        <div>
-          <h3 className="font-display text-sm font-bold uppercase tracking-wider text-white">
-            Get in touch
-          </h3>
-          <ul className="mt-4 space-y-2.5 text-sm">
-            <li>
-              <Link href="/contact" className="footer-link">
-                Send an enquiry
-              </Link>
-            </li>
-            {wa && (
+        {/* Columns */}
+        <div className="mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            {/* The 3:2 artwork is cropped to a 988px square around its own ring (x 273–1261, y 13–1001 of
+                1536×1024), so the ring fills the 128px disc and the wordmark stays legible (~88px wide).
+                Image width = 1536/988 of the disc; offsets = -273/988 and -13/988 of the disc. */}
+            <span className="logo-disc">
+              <Image
+                src={logo}
+                alt={site.fullName}
+                width={199}
+                height={133}
+                className="absolute left-[-27.63%] top-[-1.32%] h-auto w-[155.47%] max-w-none"
+              />
+            </span>
+            <p className="mt-4 max-w-xs">
+              Licensed pharmaceutical exporter supplying importers and distributors worldwide.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {site.certifications.map((c) => (
+                <span key={c} className="badge badge-cert">
+                  {c}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="footer-heading">Products</p>
+            <ul>
               <li>
-                <a
-                  href={wa}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="footer-link"
-                >
-                  WhatsApp
-                </a>
+                <Link className="footer-link" href="/medicines">
+                  All products{" "}
+                  {showCounts && <span className="font-mono text-sm text-on-dark-subtle">{nav.total}</span>}
+                </Link>
               </li>
-            )}
-            <li>
-              <Link href="/medicines" className="footer-link">
-                Browse medicines
-              </Link>
-            </li>
-            <li>
-              <Link href="/login" className="footer-link text-brand-300">
-                Admin
-              </Link>
-            </li>
-          </ul>
+              {nav.categories.map((c) => (
+                <li key={c.slug}>
+                  <Link className="footer-link" href={`/medicines?category=${c.slug}`}>
+                    {c.name}{" "}
+                    {showCounts && <span className="font-mono text-sm text-on-dark-subtle">{c.count}</span>}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <p className="footer-heading">Company</p>
+            <ul>
+              {site.nav.map((i) => (
+                <li key={i.href}>
+                  <Link className="footer-link" href={i.href}>
+                    {i.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <p className="footer-heading">Contact</p>
+            <ul>
+              {contact.email && (
+                <li>
+                  <a className="footer-link" href={`mailto:${contact.email}`}>
+                    <Mail aria-hidden className="h-4 w-4" /> {contact.email}
+                  </a>
+                </li>
+              )}
+              {contact.phoneHref && (
+                <li>
+                  <a className="footer-link" href={contact.phoneHref}>
+                    <Phone aria-hidden className="h-4 w-4" /> {contact.phone}
+                  </a>
+                </li>
+              )}
+              {wa && (
+                <li>
+                  <a className="footer-link" href={wa} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle aria-hidden className="h-4 w-4" /> WhatsApp
+                  </a>
+                </li>
+              )}
+              {contact.address && (
+                <li className="flex items-start gap-2 py-2">
+                  <MapPin aria-hidden className="mt-1 h-4 w-4 flex-none" /> {contact.address}
+                </li>
+              )}
+              <li>
+                <Link className="footer-link" href="/contact">
+                  Send us a message
+                </Link>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 
-      <div className="border-t border-white/10">
-        <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-brand-300 sm:flex-row">
-          <p>
-            © {year} {site.fullName}. All rights reserved.
-          </p>
-          <p className="max-w-xl sm:text-right">
-            Disclaimer: B2B information only. Product availability and legal
-            status vary by country.
-          </p>
+      <div className="footer-legal">
+        <div className="container-grid flex flex-wrap items-center gap-x-6 gap-y-1 py-6">
+          <span className="py-3">
+            © {year} {site.fullName}
+          </span>
+          {site.legal.map((l) => (
+            <Link key={l.href} className="footer-link" href={l.href}>
+              {l.label}
+            </Link>
+          ))}
+          <span className="py-3 lg:ml-auto">
+            Products are supplied only to licensed importers and distributors, subject to destination-country
+            regulations.
+          </span>
         </div>
       </div>
     </footer>
-  );
-}
-
-function FooterCol({
-  title,
-  links,
-}: {
-  title: string;
-  links: readonly { href: string; label: string }[];
-}) {
-  return (
-    <div>
-      <h3 className="font-display text-sm font-bold uppercase tracking-wider text-white">
-        {title}
-      </h3>
-      <ul className="mt-4 space-y-2.5 text-sm">
-        {links.map((l) => (
-          <li key={l.href}>
-            <Link href={l.href} className="footer-link">
-              {l.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }

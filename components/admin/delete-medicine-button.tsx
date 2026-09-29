@@ -3,13 +3,16 @@
 import { useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteMedicine } from "@/app/admin/medicines/actions";
+import { announce } from "@/lib/ui-store";
 
 export function DeleteMedicineButton({
   id,
   name,
+  className = "",
 }: {
   id: string;
   name: string;
+  className?: string;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -17,22 +20,27 @@ export function DeleteMedicineButton({
     <button
       type="button"
       disabled={pending}
+      aria-busy={pending || undefined}
       onClick={() => {
-        if (
-          window.confirm(`Delete "${name}"? This cannot be undone.`)
-        ) {
-          startTransition(() => {
-            void deleteMedicine(id);
+        if (window.confirm(`Delete "${name}"? This cannot be undone.`)) {
+          startTransition(async () => {
+            await deleteMedicine(id);
+            announce(`${name} deleted.`);
           });
         }
       }}
-      className="btn btn-outline px-3 py-1.5 text-red-600 hover:border-red-200 hover:bg-red-50"
+      className={`btn btn-danger btn-sm ${className}`}
     >
       {pending ? (
-        "…"
+        <>
+          <span className="spinner" aria-hidden="true" />
+          Deleting…
+        </>
       ) : (
         <>
-          <Trash2 className="h-3.5 w-3.5" /> Delete
+          <Trash2 aria-hidden="true" />
+          Delete
+          <span className="sr-only"> {name}</span>
         </>
       )}
     </button>

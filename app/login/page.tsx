@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import { ShieldCheck } from "lucide-react";
 import { LoginForm } from "@/components/auth/login-form";
 import { Logo } from "@/components/logo";
 
-export const metadata = { title: "Admin login" };
+export const metadata: Metadata = {
+  title: "Admin sign in",
+  robots: { index: false, follow: false },
+};
 
 export default async function LoginPage({
   searchParams,
@@ -12,36 +16,32 @@ export default async function LoginPage({
   const sp = await searchParams;
 
   return (
-    <section className="bg-mesh relative">
-      <div className="pointer-events-none absolute inset-0 bg-plus opacity-90" />
-      <div className="container-page relative flex min-h-[70vh] items-center justify-center py-16 lg:py-24">
-        <div className="w-full max-w-md animate-fade-up">
-          <div className="flex flex-col items-center text-center">
-            <Logo />
-            <h1 className="mt-6 font-display text-3xl font-extrabold tracking-tight text-brand-900">
-              Admin <span className="gradient-text">login</span>
-            </h1>
-            <p className="mt-2 text-slate-600">
-              Sign in to manage medicines and view enquiries.
-            </p>
-          </div>
+    <div className="bg-paper bg-mercator border-b border-rule">
+      <div className="container-grid flex min-h-[70vh] items-center justify-center py-12 lg:py-20">
+        <div className="panel w-full max-w-md p-6 sm:p-8">
+          <Logo />
+          <h1 className="mt-8 text-h2">Admin sign in</h1>
+          <p className="mt-2 text-fg-muted">Sign in to manage medicines and review enquiries.</p>
 
           {sp.redirectedFrom && (
-            <p className="mt-6 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-              <ShieldCheck className="h-4 w-4 shrink-0" />
+            <p
+              role="status"
+              className="mt-6 rounded-sm border border-navy-100 border-l-4 border-l-navy-900 bg-navy-50 px-4 py-3 font-medium text-navy-900"
+            >
               Please sign in to continue.
             </p>
           )}
 
-          <div className="card mt-6 p-6 sm:p-8">
+          <div className="mt-6">
             <LoginForm />
           </div>
 
-          <p className="mt-6 text-center text-xs text-slate-500">
-            Admin access only. Accounts are created by the site owner.
+          <p className="mt-6 flex items-start gap-2 border-t border-rule pt-4 text-sm text-fg-muted">
+            <ShieldCheck aria-hidden="true" className="mt-0.5 h-[18px] w-[18px] flex-none text-navy-700" />
+            <span>Admin access only. Accounts are created by the site owner.</span>
           </p>
         </div>
       </div>
-    </section>
+    </div>
   );
 }

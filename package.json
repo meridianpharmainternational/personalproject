@@ -10,7 +10,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.mjs",
-    "seed:catalog": "node scripts/seed-catalog.mjs"
+    "seed:catalog": "node scripts/seed-catalog.mjs",
+    "test": "tsx --tsconfig tsconfig.test.json --test \"components/**/*.test.ts\" \"lib/**/*.test.ts\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -33,6 +34,7 @@
     "eslint-config-next": "^15.5.26",
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.19",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }

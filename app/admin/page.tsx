@@ -1,65 +1,102 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRight, Boxes, CheckCircle2, Inbox, Sparkles, Pill } from "lucide-react";
+import { ArrowRight, Boxes, CheckCircle2, Inbox, MailOpen } from "lucide-react";
 import { adminCounts } from "@/lib/admin/data";
 
 export const metadata = { title: "Dashboard" };
 
 export default async function AdminDashboard() {
   const counts = await adminCounts();
+  const hidden = Math.max(0, counts.medicines - counts.activeMedicines);
 
   return (
     <div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat
-          label="Medicines"
-          value={counts.medicines}
-          tone="g1"
-          icon={<Boxes className="h-6 w-6" />}
-          className="reveal"
-        />
-        <Stat
-          label="Active"
-          value={counts.activeMedicines}
-          tone="g3"
-          icon={<CheckCircle2 className="h-6 w-6" />}
-          className="reveal reveal-d1"
-        />
-        <Stat
-          label="Enquiries"
-          value={counts.enquiries}
-          tone="g2"
-          icon={<Inbox className="h-6 w-6" />}
-          className="reveal reveal-d2"
-        />
-        <Stat
-          label="New enquiries"
-          value={counts.newEnquiries}
-          tone="g4"
-          icon={<Sparkles className="h-6 w-6" />}
-          highlight
-          className="reveal reveal-d3"
-        />
-      </div>
+      <header>
+        <p className="kicker">Overview</p>
+        <h1 className="mt-2 text-h2">Dashboard</h1>
+      </header>
 
-      <div className="mt-8 grid gap-5 sm:grid-cols-2">
-        <QuickLink
-          href="/admin/medicines"
-          icon={<Pill className="h-6 w-6" />}
-          tone="g1"
-          title="Manage medicines"
-          body="Add, edit, or remove medicines from the public catalog."
-          className="reveal"
-        />
-        <QuickLink
-          href="/admin/enquiries"
-          icon={<Inbox className="h-6 w-6" />}
-          tone="g3"
-          title="View enquiries"
-          body="Read and triage enquiries submitted from the site."
-          className="reveal reveal-d1"
-        />
-      </div>
+      <section aria-labelledby="stats-title" className="mt-8">
+        <h2 id="stats-title" className="sr-only">
+          At a glance
+        </h2>
+        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="Medicines"
+            value={counts.medicines}
+            caption="In the catalogue, including hidden"
+            icon={<Boxes aria-hidden="true" />}
+          />
+          <Stat
+            label="Active"
+            value={counts.activeMedicines}
+            caption={`Visible on the site · ${hidden} hidden`}
+            icon={<CheckCircle2 aria-hidden="true" />}
+          />
+          <Stat
+            label="Enquiries"
+            value={counts.enquiries}
+            caption="Received, all time"
+            icon={<Inbox aria-hidden="true" />}
+          />
+          <Stat
+            label="New enquiries"
+            value={counts.newEnquiries}
+            caption={counts.newEnquiries > 0 ? "Awaiting review" : "Inbox is clear"}
+            icon={<MailOpen aria-hidden="true" />}
+            highlight={counts.newEnquiries > 0}
+            href={counts.newEnquiries > 0 ? "/admin/enquiries?status=new" : undefined}
+            linkLabel={`Review ${counts.newEnquiries} new`}
+          />
+        </dl>
+      </section>
+
+      <section aria-labelledby="shortcuts-title" className="mt-10">
+        <h2 id="shortcuts-title" className="sr-only">
+          Shortcuts
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="panel flex flex-col">
+            <p className="kicker">Catalogue</p>
+            <h3 className="mt-2 text-h4">Manage medicines</h3>
+            <p className="mt-2 text-fg-muted">
+              Add, edit, hide or remove products in the public catalogue. {counts.medicines} in total,{" "}
+              {counts.activeMedicines} visible.
+            </p>
+            <div className="mt-auto flex flex-wrap gap-x-6 pt-4">
+              <Link href="/admin/medicines" className="link-arrow">
+                All medicines
+                <ArrowRight aria-hidden="true" className="icon-trail" />
+              </Link>
+              <Link href="/admin/medicines/new" className="link-arrow">
+                Add a medicine
+                <ArrowRight aria-hidden="true" className="icon-trail" />
+              </Link>
+            </div>
+          </div>
+
+          <div className="panel flex flex-col">
+            <p className="kicker">Inbox</p>
+            <h3 className="mt-2 text-h4">Review enquiries</h3>
+            <p className="mt-2 text-fg-muted">
+              Read, reply to and archive enquiries from the enquiry list and the contact form.{" "}
+              {counts.newEnquiries} new of {counts.enquiries}.
+            </p>
+            <div className="mt-auto flex flex-wrap gap-x-6 pt-4">
+              <Link href="/admin/enquiries" className="link-arrow">
+                Open inbox
+                <ArrowRight aria-hidden="true" className="icon-trail" />
+              </Link>
+              {counts.newEnquiries > 0 && (
+                <Link href="/admin/enquiries?status=new" className="link-arrow">
+                  New only
+                  <ArrowRight aria-hidden="true" className="icon-trail" />
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -67,62 +104,48 @@ export default async function AdminDashboard() {
 function Stat({
   label,
   value,
-  tone,
+  caption,
   icon,
-  highlight,
-  className = "",
+  highlight = false,
+  href,
+  linkLabel,
 }: {
   label: string;
   value: number;
-  tone: string;
+  caption: string;
   icon: ReactNode;
   highlight?: boolean;
-  className?: string;
+  href?: string;
+  linkLabel?: string;
 }) {
-  const active = highlight && value > 0;
   return (
     <div
-      className={`card p-5 ${active ? "border-leaf-300 bg-leaf-50/50 ring-1 ring-leaf-200" : ""} ${className}`}
+      className={
+        highlight
+          ? "panel surface-dark flex flex-col border-navy-900 bg-navy-900"
+          : "panel flex flex-col"
+      }
     >
-      <span className={`tile-icon ${active ? "g5" : tone}`}>{icon}</span>
-      <div
-        className={`mt-4 font-display text-4xl font-extrabold tracking-tight ${active ? "text-leaf-700" : "text-brand-900"}`}
-      >
-        {value}
-      </div>
-      <div
-        className={`mt-1 text-sm font-semibold ${active ? "text-leaf-700" : "text-slate-500"}`}
-      >
-        {label}
-      </div>
+      <dt className="flex items-start justify-between gap-3">
+        <span className={highlight ? "kicker !text-on-dark-subtle" : "kicker"}>{label}</span>
+        <span className={`[&>svg]:h-5 [&>svg]:w-5 ${highlight ? "text-on-dark-subtle" : "text-navy-700"}`}>{icon}</span>
+      </dt>
+      <dd className="mt-4">
+        <span
+          className={`block font-mono text-[2.25rem] font-medium leading-none tracking-tight tabular-nums lg:text-[3.25rem] ${
+            highlight ? "text-white" : "text-fg-strong"
+          }`}
+        >
+          {value}
+        </span>
+        <span className={`mt-3 block text-sm ${highlight ? "text-on-dark-muted" : "text-fg-muted"}`}>{caption}</span>
+        {href && linkLabel && (
+          <Link href={href} className="link-arrow mt-1">
+            {linkLabel}
+            <ArrowRight aria-hidden="true" className="icon-trail" />
+          </Link>
+        )}
+      </dd>
     </div>
-  );
-}
-
-function QuickLink({
-  href,
-  icon,
-  tone,
-  title,
-  body,
-  className = "",
-}: {
-  href: string;
-  icon: ReactNode;
-  tone: string;
-  title: string;
-  body: string;
-  className?: string;
-}) {
-  return (
-    <Link href={href} className={`tile group p-6 ${className}`}>
-      <span className={`tile-icon ${tone}`}>{icon}</span>
-      <h2 className="mt-4 font-display text-lg font-bold text-brand-900">{title}</h2>
-      <p className="mt-1.5 text-sm text-slate-600">{body}</p>
-      <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand-600">
-        Open{" "}
-        <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
-      </span>
-    </Link>
   );
 }

@@ -1,165 +1,176 @@
-import type { ComponentType } from "react";
-import { Mail, Phone, MapPin, MessageCircle, Clock, ArrowRight } from "lucide-react";
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { EnquiryForm } from "@/components/enquiry/enquiry-form";
-import { site, whatsappLink } from "@/lib/site";
+import { OpenEnquiryButton } from "@/components/enquiry/open-enquiry-button";
+import { contact, site, whatsappLink } from "@/lib/site";
 
-export const metadata = { title: "Contact" };
+export const metadata: Metadata = {
+  title: "Contact",
+  description: `Contact the ${site.fullName} export desk for pricing, availability and documentation.`,
+};
 
 export default function ContactPage() {
   const wa = whatsappLink();
+  // Only real details are listed; placeholders in lib/site.ts come back as null.
+  // TODO(content): confirm business hours and time zone before listing them here.
+  const hasDirect = Boolean(contact.email || contact.phone || wa || contact.address);
 
   return (
-    <div className="overflow-x-clip">
-      {/* ---------------- HEADER BAND ---------------- */}
-      <section className="bg-mesh relative">
-        <div className="pointer-events-none absolute inset-0 bg-plus opacity-90" />
-        <div className="container-page relative py-14 lg:py-20">
-          <div className="max-w-2xl animate-fade-up">
-            <span className="eyebrow">
-              <span className="dot" />
-              Contact
-            </span>
-            <h1 className="mt-5 font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-brand-900 sm:text-5xl">
-              Let&rsquo;s talk about your{" "}
-              <span className="gradient-text">next order.</span>
-            </h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
-              Send an enquiry and our export desk will respond with pricing,
-              availability, and full documentation.
-            </p>
-          </div>
+    <>
+      {/* ------------------------------------------------------ page head */}
+      <header className="page-head bg-mercator">
+        <div className="container-grid">
+          <nav aria-label="Breadcrumb">
+            <ol className="crumbs">
+              <li>
+                <Link href="/">Home</Link>
+              </li>
+              <li>
+                <span aria-current="page">Contact</span>
+              </li>
+            </ol>
+          </nav>
+          <h1 className="mt-2 max-w-4xl">Contact the export desk</h1>
+          <p className="lead mt-4">
+            Send a question or a product enquiry. Our export team replies by email with pricing,
+            availability and documentation.
+          </p>
         </div>
-      </section>
+      </header>
 
-      {/* ---------------- FORM + CONTACT METHODS ---------------- */}
-      <section className="container-page py-16 lg:py-20">
-        <div className="grid gap-8 lg:grid-cols-5 lg:gap-10">
-          {/* LEFT — enquiry form */}
-          <div className="reveal lg:col-span-3">
-            <div className="card p-6 sm:p-8">
-              <span className="eyebrow">
-                <span className="dot" />
-                Enquiry
-              </span>
-              <h2 className="mt-4 font-display text-2xl font-extrabold tracking-tight text-brand-900">
-                Send an <span className="gradient-text">enquiry</span>
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Tell us what you need — quantities, destination market, and any
-                documentation requirements.
-              </p>
-              <div className="mt-6">
-                <EnquiryForm source="Contact Form" />
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT — reach us directly */}
-          <div className="reveal reveal-d1 lg:col-span-2">
-            <span className="eyebrow">
-              <span className="dot" />
-              Direct lines
-            </span>
-            <h2 className="mt-4 font-display text-2xl font-extrabold tracking-tight text-brand-900">
-              Reach us <span className="gradient-text">directly</span>
+      {/* --------------------------------------------- form + side panels */}
+      <section className="section">
+        <div className="container-grid grid-12 items-start">
+          {/* Left: the enquiry form (no scroll-reveal on forms) */}
+          <section className="panel col-span-full lg:col-span-7 lg:p-8" aria-labelledby="contact-form-title">
+            <h2 id="contact-form-title" className="font-sans text-h3">
+              Send an enquiry
             </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Prefer to reach out yourself? Use any of the channels below.
+            <p className="mt-2 text-fg-muted">
+              Tell us what you need: products, quantities, destination market and any documentation
+              requirements.
             </p>
-
-            <div className="mt-6 space-y-4">
-              <ContactMethod
-                icon={Mail}
-                tone="g1"
-                label="Email"
-                value={site.email}
-                href={`mailto:${site.email}`}
-              />
-              <ContactMethod
-                icon={Phone}
-                tone="g2"
-                label="Phone"
-                value={site.phone}
-                href={`tel:${site.phone.replace(/\s+/g, "")}`}
-              />
-              <ContactMethod
-                icon={MapPin}
-                tone="g4"
-                label="Address"
-                value={site.address}
-              />
+            <div className="mt-6">
+              <EnquiryForm source="Contact Form" />
             </div>
+          </section>
 
-            {wa && (
-              <a href={wa} className="btn btn-accent mt-6 w-full">
-                <MessageCircle className="h-4 w-4" />
-                Chat on WhatsApp
-                <ArrowRight className="h-4 w-4" />
-              </a>
-            )}
+          {/* Right: direct lines, multi-product lists, what happens next */}
+          <div className="col-span-full grid gap-6 md:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
+            <section className="panel" aria-labelledby="contact-desk">
+              <h2 id="contact-desk" className="font-sans text-h4">
+                Export desk
+              </h2>
+              {hasDirect ? (
+                <ul className="mt-3 border-t border-rule">
+                  {contact.email && (
+                    <ContactRow icon={<Mail aria-hidden />} label="Email" href={`mailto:${contact.email}`}>
+                      {contact.email}
+                    </ContactRow>
+                  )}
+                  {contact.phone && contact.phoneHref && (
+                    <ContactRow icon={<Phone aria-hidden />} label="Phone" href={contact.phoneHref}>
+                      {contact.phone}
+                    </ContactRow>
+                  )}
+                  {wa && (
+                    <ContactRow icon={<MessageCircle aria-hidden />} label="WhatsApp" href={wa} external>
+                      Chat on WhatsApp
+                    </ContactRow>
+                  )}
+                  {contact.address && (
+                    <ContactRow icon={<MapPin aria-hidden />} label="Address">
+                      {contact.address}
+                    </ContactRow>
+                  )}
+                </ul>
+              ) : null}
+              <p className={hasDirect ? "mt-4 text-fg-muted" : "mt-2 text-fg-muted"}>
+                {hasDirect
+                  ? "Or use the form: it reaches the export team directly."
+                  : "The form on this page reaches our export team directly, and they reply by email."}
+              </p>
+            </section>
 
-            {/* Business hours */}
-            <div className="mt-6 flex items-start gap-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
-              <span className="tile-icon g3 h-11 w-11 shrink-0">
-                <Clock className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-sm font-bold text-brand-900">
-                  Business hours
-                </p>
-                {/* TODO: confirm real business hours, timezone, and holiday schedule. */}
-                <p className="mt-0.5 text-sm text-slate-600">
-                  Mon&ndash;Fri, 9:00&ndash;18:00 (local time). We reply to most
-                  enquiries within one business day.
-                </p>
+            <section className="panel corner-ticks" aria-labelledby="contact-list">
+              <h2 id="contact-list" className="font-sans text-h4">
+                Have several products?
+              </h2>
+              <p className="mt-2 text-fg-muted">
+                Add them to your enquiry list from the catalogue, or paste a list you already have. We match
+                it to the catalogue and you send everything as one enquiry.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <OpenEnquiryButton label="Open your enquiry list" />
+                <OpenEnquiryButton paste label="Paste a product list" showCount={false} className="btn btn-secondary" />
               </div>
-            </div>
+            </section>
 
-            {/* TODO: map embed, additional regional desks. */}
+            <section className="md:col-span-2 lg:col-span-1" aria-labelledby="contact-next">
+              <h2 id="contact-next" className="font-sans text-h4">
+                What happens next
+              </h2>
+              <table className="ledger mt-3">
+                <caption className="sr-only">What happens after you send an enquiry</caption>
+                <tbody>
+                  <tr>
+                    <th scope="row">Reply time</th>
+                    <td>Within 1 business day</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Quote includes</th>
+                    <td>Pricing, availability, documentation</td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
           </div>
         </div>
       </section>
-    </div>
+    </>
   );
 }
 
-function ContactMethod({
-  icon: Icon,
-  tone,
+function ContactRow({
+  icon,
   label,
-  value,
   href,
+  external = false,
+  children,
 }: {
-  icon: ComponentType<{ className?: string }>;
-  tone: string;
+  icon: ReactNode;
   label: string;
-  value: string;
   href?: string;
+  external?: boolean;
+  children: ReactNode;
 }) {
   const body = (
     <>
-      <span className={`tile-icon ${tone} h-12 w-12 shrink-0`}>
-        <Icon className="h-6 w-6" />
+      <span className="flex-none text-navy-700 [&>svg]:h-5 [&>svg]:w-5">{icon}</span>
+      <span className="min-w-0">
+        <span className="block text-xs text-fg-muted">{label}</span>
+        <span className={`block break-words font-medium ${href ? "text-navy-600" : "text-fg-strong"}`}>
+          {children}
+          {external && <span className="sr-only"> (opens in a new tab)</span>}
+        </span>
       </span>
-      <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wide text-leaf-700">
-          {label}
-        </p>
-        <p className="mt-0.5 break-words font-medium text-brand-900">{value}</p>
-      </div>
     </>
   );
-
-  if (href) {
-    return (
-      <a
-        href={href}
-        className="card group flex items-center gap-4 p-4 transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lift"
-      >
-        {body}
-      </a>
-    );
-  }
-
-  return <div className="card flex items-center gap-4 p-4">{body}</div>;
+  return (
+    <li className="border-b border-rule">
+      {href ? (
+        <a
+          href={href}
+          {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+          className="flex min-h-tap items-center gap-3 py-2.5 underline decoration-transparent underline-offset-4 hover:decoration-current"
+        >
+          {body}
+        </a>
+      ) : (
+        <div className="flex min-h-tap items-center gap-3 py-2.5">{body}</div>
+      )}
+    </li>
+  );
 }
