@@ -1,11 +1,12 @@
 /**
  * Pure catalogue model shared by the /medicines client components: URL params
  * ⇄ state, search matching, facet counting and sorting. No React, no server
- * imports (CatalogItem is a type-only import; lib/search-text is pure), so it
- * is safe on both sides and trivially testable.
+ * imports (CatalogItem is a type-only import; lib/search-text and lib/format
+ * are pure), so it is safe on both sides and trivially testable.
  */
 import type { CatalogItem } from "@/lib/catalog";
-import { norm } from "@/lib/search-text";
+import { keepTogether } from "@/lib/format";
+import { hasAllTokens, norm } from "@/lib/search-text";
 
 export const PAGE_SIZE = 48;
 export const VIEW_STORAGE_KEY = "meridian.catalogue.view.v1";
@@ -99,18 +100,48 @@ export function tagStrengths(strengths: string[], emph?: ReadonlySet<string>): {
   return [...tagged.filter((t) => t.match), ...tagged.filter((t) => !t.match)];
 }
 
+/**
+ * orderStrengths, cut to `max` for a one-line summary: `shown` is the first
+ * `max` joined with ", " (each kept on one line by keepTogether), `more` how
+ * many were left out. Separate, so callers keep "+N more" out of the part that
+ * may be truncated.
+ */
+export function strengthLine(
+  strengths: string[],
+  emph?: ReadonlySet<string>,
+  max = 3,
+): { shown: string; more: number } {
+  const s = orderStrengths(strengths, emph);
+  return { shown: s.slice(0, max).map(keepTogether).join(", "), more: Math.max(0, s.length - max) };
+}
+
+/**
+ * The one real strength the buyer named (filter or typed number), or undefined
+ * when none or several match. Pass it to AddToEnquiry so the line is not added
+ * as Any.
+ */
+export const emphStrength = (strengths: string[], emph?: ReadonlySet<string>): string | undefined => {
+  if (!emph?.size) return undefined;
+  const hits = strengths.filter((s) => isRealStrength(s) && isEmphStrength(s, emph));
+  return hits.length === 1 ? hits[0] : undefined;
+};
+
 /* ------------------------------------------------------------ search */
 
 // The normaliser and tokenizer live in lib/search-text, shared with the header
 // search and Paste-a-list; re-exported so existing imports keep working.
-export { norm, tokenize } from "@/lib/search-text";
+export { hasAllTokens, hasToken, norm, tokenize } from "@/lib/search-text";
 
 /* ---------------------------------------------------------- universe */
 
 export type Option = { value: string; total: number };
 
 export type Universe = {
-  /** Normalised search text per item id (name, molecule, form, strengths, category). */
+  /**
+   * Normalised search text per item id (name, molecule, form, strengths,
+   * category, then the ester/salt word from the description), in the same
+   * order as prepare() in lib/catalog-index.ts so both searches agree.
+   */
   hay: Map<string, string>;
   molecules: Option[]; // A–Z
   forms: Option[]; // most products first
@@ -142,7 +173,16 @@ export function buildUniverse(items: CatalogItem[]): Universe {
   for (const it of items) {
     hay.set(
       it.id,
-      norm([it.name, it.molecule ?? "", it.form ?? "", it.strengths.join(" "), it.category?.name ?? ""].join(" ")),
+      norm(
+        [
+          it.name,
+          it.molecule ?? "",
+          it.form ?? "",
+          it.strengths.join(" "),
+          it.category?.name ?? "",
+          it.ester ?? "",
+        ].join(" "),
+      ),
     );
   }
   const toOptions = (m: Map<string, number>) => [...m].map(([value, total]) => ({ value, total }));
@@ -255,7 +295,7 @@ export const normalizeSearch = (s: string) => new URLSearchParams(s).toString();
 export function matchesQuery(it: CatalogItem, tokens: string[], u: Universe): boolean {
   if (!tokens.length) return true;
   const hay = u.hay.get(it.id) ?? "";
-  return tokens.every((t) => hay.includes(t));
+  return hasAllTokens(hay, tokens);
 }
 
 /** Does the item pass every active filter, optionally ignoring one dimension? */

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 // Same normaliser and tokenizer the /medicines catalogue uses, so "100mg",
 // "100 mg" and "Cenforce-D" match identically in the header search and on the
 // catalogue page.
-import { norm, tokenize, relaxTokens } from "@/lib/search-text";
+import { norm, tokenize, relaxTokens, hasAllTokens, relevanceScore } from "@/lib/search-text";
 
 /** One product in the lean search index served by /api/catalog-index. */
 export type IndexItem = {
@@ -16,6 +16,12 @@ export type IndexItem = {
   category: { slug: string; name: string } | null;
   availability: "in-stock" | "made-to-order";
   image: string | null;
+  /**
+   * The ester or salt the product's description names ("enanthate"), from
+   * esterWord() in lib/search-text; searched but never shown. Optional so an
+   * older cached index response (and test fixtures) without it still work.
+   */
+  ester?: string | null;
 };
 
 /** Only a good (non-empty) index is ever cached; failures are retried. */
@@ -161,7 +167,11 @@ function prepare(index: IndexItem[]): Prepared {
     name: norm(it.name),
     mol: norm(it.molecule ?? ""),
     // Same fields and order as the catalogue's buildUniverse(), so counts agree.
-    hay: norm([it.name, it.molecule ?? "", it.form ?? "", it.strengths.join(" "), it.category?.name ?? ""].join(" ")),
+    hay: norm(
+      [it.name, it.molecule ?? "", it.form ?? "", it.strengths.join(" "), it.category?.name ?? "", it.ester ?? ""].join(
+        " ",
+      ),
+    ),
   }));
 
   const molMap = new Map<string, { name: string; n: string; count: number }>();
@@ -192,13 +202,22 @@ function prepare(index: IndexItem[]): Prepared {
 }
 
 /**
- * Token-AND search across name, molecule, form, strengths and category, using
- * the catalogue's normaliser and tokenizer (case, accents, punctuation,
- * "100 mg" = "100mg", single letters ignored). A query with no tokens (e.g. a
- * lone letter) is no query and returns no results.
- * Ranking: the whole query (single letters included, so "Cenforce D" puts
- * Cenforce-D first) as the exact name → as a name prefix → the tokens as a
- * name prefix → molecule prefix → word-start in name → substring.
+ * Token-AND search across name, molecule, form, strengths, category and ester,
+ * using the catalogue's normaliser, tokenizer and token test (case, accents,
+ * punctuation, "100 mg" = "100mg", single letters ignored, and a dose token
+ * must start a number, so "20mg" does not match "120mg"; see hasToken). A query
+ * with no tokens (e.g. a lone letter) is no query and returns no results.
+ * Ranking (relevanceScore, shared with the catalogue): the whole query (single
+ * letters included, so "Cenforce D" puts Cenforce-D first) as the exact name →
+ * as a name prefix, or the full name typed and then a dose, form or ester
+ * ("oxandrol 10mg" puts OXANDROL first, "TEST-C 250mg" puts TEST-C first; a
+ * lone letter after the name is a variant, so "cenforce d" does not lift
+ * Cenforce) → the tokens as a name prefix → molecule prefix (the tokens, or for
+ * a multi-token query its first token, so "sildenafil 100mg" keeps Sildenafil
+ * products ahead of look-alikes) → word-start in name → substring.
+ * Ties keep catalogue order (sort_order, the index's row order), so the panel
+ * lists products in the same order as /medicines "Best match" after "See all"
+ * or Enter.
  * Spelling tolerance: a search that matches no product is retried once with
  * each unmatched long word (7+ letters) shortened by 1-2 trailing letters
  * ("ivermectine" → "ivermectin", see relaxTokens). If that finds products,
@@ -219,33 +238,23 @@ export function searchCatalog(
   const run = (tokens: string[], whole: string): Omit<SearchResult, "correctedTo"> => {
     const q = tokens.join(" ");
 
-    const scored: { item: IndexItem; score: number }[] = [];
-    for (const r of p.rows) {
-      if (!tokens.every((t) => r.hay.includes(t))) continue;
-      const score =
-        r.name === whole
-          ? 0
-          : r.name.startsWith(whole)
-            ? 1
-            : r.name.startsWith(q)
-              ? 2
-              : r.mol.startsWith(q)
-                ? 3
-                : r.name.split(" ").some((w) => w.startsWith(tokens[0]))
-                  ? 4
-                  : 5;
-      scored.push({ item: r.item, score });
-    }
-    scored.sort((a, b) => a.score - b.score || a.item.name.localeCompare(b.item.name));
+    // Ties keep row order, which is index order (sort_order): the same order as
+    // the catalogue's "Best match" sort, so "See all" shows the same list.
+    const scored: { item: IndexItem; score: number; i: number }[] = [];
+    p.rows.forEach((r, i) => {
+      if (!hasAllTokens(r.hay, tokens)) return;
+      scored.push({ item: r.item, score: relevanceScore(r.name, r.mol, tokens, whole), i });
+    });
+    scored.sort((a, b) => a.score - b.score || a.i - b.i);
 
     const molecules = p.molecules
-      .filter((m) => tokens.every((t) => m.n.includes(t)))
+      .filter((m) => hasAllTokens(m.n, tokens))
       .sort((a, b) => (a.n.startsWith(q) ? 0 : 1) - (b.n.startsWith(q) ? 0 : 1) || b.count - a.count)
       .slice(0, limits.molecules)
       .map(({ name, count }) => ({ name, count }));
 
     const categories = p.categories
-      .filter((c) => tokens.every((t) => c.n.includes(t)))
+      .filter((c) => hasAllTokens(c.n, tokens))
       .slice(0, limits.categories)
       .map(({ slug, name, count }) => ({ slug, name, count }));
 

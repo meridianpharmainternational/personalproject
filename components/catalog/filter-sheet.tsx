@@ -74,7 +74,7 @@ export function FilterSheet({
       >
         <div className="drawer-grip" aria-hidden="true" />
         <div className="drawer-head">
-          <h2 id={titleId} ref={titleRef} tabIndex={-1} className="drawer-title outline-none">
+          <h2 id={titleId} ref={titleRef} tabIndex={-1} className="drawer-title outline-0">
             Filters
           </h2>
           <button type="button" className="icon-btn icon-btn-bare" onClick={onClose} aria-label="Close filters">

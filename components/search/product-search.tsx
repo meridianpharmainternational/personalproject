@@ -11,7 +11,7 @@ import {
   type SearchResult,
 } from "@/lib/catalog-index";
 import { tokenize } from "@/lib/search-text";
-import { orderStrengths, strengthEmphasis } from "@/components/catalog/catalog-model";
+import { emphStrength, strengthEmphasis, strengthLine } from "@/components/catalog/catalog-model";
 import { enquiryList } from "@/lib/enquiry-list";
 import { customId } from "@/lib/enquiry-actions";
 import { announce } from "@/lib/ui-store";
@@ -58,7 +58,9 @@ const productCount = (n: number) => `${n} ${n === 1 ? "product" : "products"}`;
  * A query with no search tokens (a lone letter, see tokenize) is treated as no
  * query. If the index can't be loaded, the panel says search is unavailable
  * and offers "Try again"; "No products match" and the custom request are only
- * shown once the index has loaded.
+ * shown once the index has loaded. When the query names a product plus a dose
+ * we don't list, "No products match" also links to that product's other
+ * strengths (not in "inline" mode, which has no navigation).
  *
  * ARIA: the input carries `aria-controls` but not `aria-expanded`, which is
  * not allowed on a searchbox (ARIA 1.2); this corrects spec §6. What the panel
@@ -91,6 +93,20 @@ export function ProductSearch({
     () => (index ? searchCatalog(index, q, mode === "inline" ? INLINE_LIMITS : undefined) : null),
     [index, q, mode],
   );
+  // A product plus a dose we don't list ("cenforce 500mg") matches nothing;
+  // the same words without the numbers may ("cenforce", 7 products), as in
+  // MedicineCatalog. searchCatalog relaxes brand names and typos and reports
+  // the words it searched in correctedTo. Null when the query has no number
+  // token, has nothing else, still matches nothing, or in the drawer (which
+  // offers no navigation).
+  const otherStrengths = useMemo(() => {
+    if (!index || !results || results.total > 0 || mode === "inline") return null;
+    const typed = tokenize(q);
+    const words = typed.filter((t) => !/^\d/.test(t));
+    if (!words.length || words.length === typed.length) return null;
+    const r = searchCatalog(index, words.join(" "));
+    return r.total > 0 ? { q: r.correctedTo || words.join(" "), total: r.total } : null;
+  }, [index, results, q, mode]);
   const term = q.trim();
   // A lone letter is no search term (tokenize drops it), so it opens no results.
   const hasQuery = tokenize(q).length > 0;
@@ -109,7 +125,7 @@ export function ProductSearch({
       : status === "error"
         ? UNAVAILABLE
         : status === "ready" && results
-          ? describeResults(results, term, mode)
+          ? describeResults(results, term, mode, otherStrengths)
           : "";
   useEffect(() => {
     if (!spoken) return;
@@ -272,7 +288,7 @@ export function ProductSearch({
         className="relative"
       >
         <label htmlFor={inputId} className="sr-only">
-          {mode === "inline" ? "Search products to add" : "Search products"}
+          {mode === "inline" ? "Add more products" : "Search products"}
         </label>
         <Search className="search-icon" aria-hidden />
         <input
@@ -389,50 +405,81 @@ export function ProductSearch({
                   <p className="kicker search-group-title" aria-hidden>
                     Products
                   </p>
-                  {results.products.map((p) => (
-                    <div key={p.id} className="search-row">
-                      <div className="min-w-0">
-                        {mode === "inline" ? (
-                          <p className="search-row-title truncate">
-                            <Highlight text={p.name} q={markQ} />
-                          </p>
-                        ) : (
-                          <Link
-                            href={`/medicines/${p.id}`}
-                            data-row
-                            onKeyDown={onRowKey}
-                            onClick={done}
-                            className="search-row-title block truncate after:absolute after:inset-0"
-                          >
-                            <Highlight text={p.name} q={markQ} />
-                          </Link>
-                        )}
-                        {/* "Ivermectin · Cream · 1 % w/w (30 g)" vs "Ivermectin · Tablets · 3 mg, 6 mg,
-                            12 mg", as in the catalogue's list rows; a strength the query names leads. */}
-                        <p className="search-row-sub truncate">
-                          {[p.molecule, p.form, orderStrengths(p.strengths, emph).slice(0, 3).join(", ")]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </p>
+                  {results.products.map((p) => {
+                    const meta = [p.molecule, p.form].filter(Boolean).join(" · ");
+                    const { shown, more } = strengthLine(p.strengths, emph);
+                    return (
+                      <div key={p.id} className="search-row">
+                        <div className="min-w-0">
+                          {mode === "inline" ? (
+                            <p className="search-row-title truncate">
+                              <Highlight text={p.name} q={markQ} />
+                            </p>
+                          ) : (
+                            <Link
+                              href={`/medicines/${p.id}`}
+                              data-row
+                              onKeyDown={onRowKey}
+                              onClick={done}
+                              className="search-row-title block truncate after:absolute after:inset-0"
+                            >
+                              <Highlight text={p.name} q={markQ} />
+                            </Link>
+                          )}
+                          {/* Two one-line subs, as in the catalogue's list rows (ProductRow):
+                              "Ivermectin · Tablets", then "3 mg, 6 mg, 12 mg +2 more", a strength the
+                              query names leading. "+N more" never shrinks, so in the narrow mobile
+                              sheet the first strengths take the ellipsis and the count stays readable
+                              (a product is never shown as if it came in only three strengths). Its
+                              spaces are no-break spaces: a plain leading space would collapse in the
+                              flex item. */}
+                          {meta && <p className="search-row-sub truncate">{meta}</p>}
+                          {shown && (
+                            <p className="search-row-sub flex min-w-0">
+                              <span className="truncate">{shown}</span>
+                              {more > 0 && <span className="shrink-0 whitespace-nowrap">{` +${more} more`}</span>}
+                            </p>
+                          )}
+                        </div>
+                        <span
+                          className="relative z-[1]"
+                          data-row-host={mode === "inline" ? "" : undefined}
+                          onKeyDown={mode === "inline" ? onRowKey : undefined}
+                        >
+                          {/* The one strength the query names ("cenforce 100mg") is added with the line. */}
+                          <AddToEnquiry product={p} strength={emphStrength(p.strengths, emph)} variant="icon" />
+                        </span>
                       </div>
-                      <span
-                        className="relative z-[1]"
-                        data-row-host={mode === "inline" ? "" : undefined}
-                        onKeyDown={mode === "inline" ? onRowKey : undefined}
-                      >
-                        <AddToEnquiry product={p} variant="icon" />
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="search-group px-4 py-4">
                   <p className="text-fg">
                     No products match <b>“{term}”</b>.
                   </p>
-                  <button type="button" className="btn btn-secondary btn-sm mt-3" onClick={addCustom}>
-                    <Plus aria-hidden /> Add “{term}” as a custom request
-                  </button>
+                  <div className="mt-3 flex flex-col items-start gap-2">
+                    {/* The dose isn't listed but the product is: link to its other strengths.
+                        The custom request still sends the query as typed, dose included. */}
+                    {otherStrengths && (
+                      <Link
+                        href={`/medicines?q=${encodeURIComponent(otherStrengths.q)}`}
+                        className="link-arrow"
+                        data-row
+                        onKeyDown={onRowKey}
+                        onClick={done}
+                      >
+                        <span>
+                          See “{otherStrengths.q}” in other strengths ({otherStrengths.total}
+                          <span className="sr-only"> {otherStrengths.total === 1 ? "product" : "products"}</span>)
+                        </span>
+                        <ArrowRight aria-hidden />
+                      </Link>
+                    )}
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={addCustom}>
+                      <Plus aria-hidden /> Add “{term}” as a custom request
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -521,8 +568,17 @@ function consumeEscape(e: KeyboardEvent<Element>) {
 }
 
 /** Live-region text for what the open results panel shows. */
-function describeResults(r: SearchResult, term: string, mode: Mode): string {
-  if (!r.total) return `No products match “${term}”.`;
+function describeResults(
+  r: SearchResult,
+  term: string,
+  mode: Mode,
+  other: { q: string; total: number } | null = null,
+): string {
+  if (!r.total) {
+    return other
+      ? `No products match “${term}”. “${other.q}” is listed in other strengths. Press Down arrow to move to the link.`
+      : `No products match “${term}”.`;
+  }
   // A corrected search says what it searched for, aloud too.
   const lead = r.correctedTo ? `Showing results for “${r.correctedTo}”. ` : "";
   const products = productCount(r.total);

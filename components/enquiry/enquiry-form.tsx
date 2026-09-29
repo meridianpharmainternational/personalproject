@@ -5,10 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { enquirySchema, type EnquiryInput } from "@/lib/validations/enquiry";
 import { submitEnquiry, type EnquiryResult } from "@/lib/actions/enquiry";
 import { COUNTRIES } from "@/lib/countries";
+import { enquiryList, useEnquiryList } from "@/lib/enquiry-list";
 import { Field } from "@/components/ui/field";
 
 /** Same device-only store the enquiry-list drawer uses, so both forms pre-fill alike. */
@@ -25,7 +26,9 @@ const fmt = (n: number) => n.toLocaleString("en");
 /**
  * The single-enquiry form (contact page). Multi-product enquiries go through
  * the enquiry-list drawer; this form sends one message, optionally with a
- * free-text product list.
+ * free-text product list. It never sends the enquiry list, so while that list
+ * holds products the form (and its success panel) says so and offers the
+ * drawer, rather than letting a buyer think the list went too.
  *
  * Accessibility: ids are useId()-prefixed (no clashes if two forms are
  * mounted), every control is labelled, errors are linked with aria-invalid +
@@ -54,6 +57,9 @@ export function EnquiryForm({
   const [serverError, setServerError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [remember, setRemember] = useState(true);
+  // Lines waiting in the enquiry-list drawer (empty on the server and until hydrated).
+  const listed = useEnquiryList().items.length;
+  const listedText = `${listed} product${listed === 1 ? "" : "s"}`;
 
   const {
     register,
@@ -153,7 +159,7 @@ export function EnquiryForm({
         tabIndex={-1}
         role="status"
         aria-labelledby={id("done-title")}
-        aria-describedby={id("done-body")}
+        aria-describedby={listed > 0 ? `${id("done-body")} ${id("done-list")}` : id("done-body")}
         className="panel focus-visible:outline-offset-4"
       >
         <span className="grid h-10 w-10 place-items-center rounded-sm bg-leaf-700 text-white" aria-hidden>
@@ -166,7 +172,19 @@ export function EnquiryForm({
           Thank you. Our export team replies by email{sentTo ? <> to <strong className="break-all">{sentTo}</strong></> : null},
           usually within 1 business day.
         </p>
+        {listed > 0 && (
+          <p id={id("done-list")} className="mt-3 text-fg-muted">
+            Your enquiry list still has {listedText}. This message didn’t include them, so send the list as
+            its own enquiry.
+          </p>
+        )}
         <div className="mt-6 flex flex-wrap gap-3">
+          {listed > 0 && (
+            <button type="button" className="btn btn-enquire" onClick={() => enquiryList.open()}>
+              Review &amp; send your list
+              <ArrowRight aria-hidden className="icon-trail" />
+            </button>
+          )}
           <button type="button" className="btn btn-secondary" onClick={startAnother}>
             Send another enquiry
           </button>
@@ -212,6 +230,19 @@ export function EnquiryForm({
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {listed > 0 && (
+        <div className="rounded border border-navy-900 bg-navy-50 p-4">
+          <p className="font-semibold text-fg-strong">You have {listedText} in your enquiry list</p>
+          <p className="mt-1 text-fg-muted">
+            This form doesn’t send them. Review your list and send it as one enquiry.
+          </p>
+          <button type="button" className="btn btn-enquire btn-sm mt-3" onClick={() => enquiryList.open()}>
+            Review &amp; send your list
+            <ArrowRight aria-hidden className="icon-trail" />
+          </button>
         </div>
       )}
 

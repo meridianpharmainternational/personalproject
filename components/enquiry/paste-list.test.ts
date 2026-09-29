@@ -1,12 +1,15 @@
 /**
- * Parser tests for Paste-a-list: the lines buyers paste, and what each must become.
+ * Tests for Paste-a-list: the lines buyers paste, what each must become, and what an Add
+ * does to the enquiry list (and the note it shows).
  * Uses Node's built-in runner (node:test), so it needs no test dependency; run it through a
  * TypeScript loader that maps "@/" and compiles the JSX in ./paste-list.tsx.
  */
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { IndexItem } from "@/lib/catalog-index";
-import { parsePaste } from "./paste-list";
+import { enquiryList } from "@/lib/enquiry-list";
+import { toAddInput } from "@/lib/enquiry-actions";
+import { addPasted, addedNote, parsePaste } from "./paste-list";
 
 type Line = ReturnType<typeof parsePaste>[number];
 
@@ -164,5 +167,79 @@ describe("parsePaste: suggestions and custom requests", () => {
     assert.equal(p.match, null);
     assert.equal(p.name, "2 in 1 kit");
     assert.equal(p.qty, undefined);
+  });
+});
+
+/**
+ * addPasted and addedNote against the real enquiry-list store. It runs under node because
+ * the store's localStorage write is in a try/catch; every case starts from an empty list.
+ */
+describe("addPasted: what an Add does to the list", () => {
+  /** Store inputs for pasted text whose every line matches the catalogue. */
+  const inputsOf = (t: string) => parse(t).map((p) => toAddInput(p.match!, p.strength, p.qty));
+  /** The list as [name, strength, packs] rows, in order. */
+  const rows = () => enquiryList.getSnapshot().items.map((i) => [i.name, i.strength, i.qty]);
+  const CENFORCE = INDEX[0];
+
+  beforeEach(() => enquiryList.clear());
+
+  it("adds new lines and counts a strengthless line for a listed product as already listed", () => {
+    enquiryList.add(toAddInput(CENFORCE, "100 mg"));
+    const result = addPasted(inputsOf("Cenforce\nIVERHEAL 12 mg"));
+    assert.deepEqual(result, { n: 1, custom: 0, updated: 0, dup: 1, cut: 0 });
+    assert.equal(addedNote(result), "1 line added · 1 already in your list.");
+  });
+
+  it("gives a listed line the packs pasted for it", () => {
+    enquiryList.add(toAddInput(CENFORCE, "100 mg"));
+    const result = addPasted(inputsOf("Cenforce 100 x 50"));
+    assert.deepEqual(result, { n: 0, custom: 0, updated: 1, dup: 0, cut: 0 });
+    assert.deepEqual(rows(), [["Cenforce", "100 mg", 50]]);
+  });
+
+  it("gives packs pasted with no strength to a product listed on one line", () => {
+    enquiryList.add(toAddInput(CENFORCE, "100 mg"));
+    const result = addPasted(inputsOf("Cenforce x 20"));
+    assert.deepEqual(result, { n: 0, custom: 0, updated: 1, dup: 0, cut: 0 });
+    assert.deepEqual(rows(), [["Cenforce", "100 mg", 20]]);
+    assert.equal(addedNote(result), "1 line updated to the packs you pasted.");
+  });
+
+  it("leaves a product listed on two lines alone when the packs name no strength", () => {
+    enquiryList.addMany([toAddInput(CENFORCE, "100 mg"), toAddInput(CENFORCE, "50 mg")]);
+    const result = addPasted(inputsOf("Cenforce x 20, IVERHEAL 12 mg x 3"));
+    assert.deepEqual(result, { n: 1, custom: 0, updated: 0, dup: 1, cut: 0 });
+    assert.deepEqual(rows(), [
+      ["Cenforce", "100 mg", 1],
+      ["Cenforce", "50 mg", 1],
+      ["IVERHEAL", "12 mg", 3],
+    ]);
+  });
+
+  it("does not update a product this paste gave a second strength", () => {
+    enquiryList.add(toAddInput(CENFORCE, "100 mg"));
+    const result = addPasted(inputsOf("Cenforce 50 x 10\nCenforce x 20"));
+    assert.deepEqual(result, { n: 1, custom: 0, updated: 0, dup: 1, cut: 0 });
+    assert.deepEqual(rows(), [
+      ["Cenforce", "100 mg", 1],
+      ["Cenforce", "50 mg", 10],
+    ]);
+  });
+
+  it("lets the first pasted line for a listed line win, and counts an unchanged count as already listed", () => {
+    enquiryList.add(toAddInput(CENFORCE, "100 mg"));
+    const result = addPasted(inputsOf("Cenforce 100 x 1, Cenforce 100 x 9"));
+    assert.deepEqual(result, { n: 0, custom: 0, updated: 0, dup: 2, cut: 0 });
+    assert.deepEqual(rows(), [["Cenforce", "100 mg", 1]]);
+  });
+
+  it("reports lines cut by the list cap apart from listed lines it updated", () => {
+    enquiryList.addMany(Array.from({ length: 99 }, (_, k) => toAddInput(CENFORCE, `${k} mg`)));
+    const result = addPasted(inputsOf("IVERHEAL 12 mg, IVERHEAL 6 mg, Cenforce 1 mg x 7"));
+    assert.deepEqual(result, { n: 1, custom: 0, updated: 1, dup: 0, cut: 1 });
+    const list = rows();
+    assert.equal(list.length, 100);
+    assert.deepEqual(list[1], ["Cenforce", "1 mg", 7]);
+    assert.deepEqual(list[99], ["IVERHEAL", "12 mg", 1]);
   });
 });

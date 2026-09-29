@@ -11,6 +11,9 @@ import type { EnquiryStatus } from "@/types/db";
 
 type Which = "read" | "archived" | "new" | "delete";
 
+const UPDATE_FAILED = "Couldn't update this enquiry. Try again.";
+const DELETE_FAILED = "Couldn't delete this enquiry. Try again.";
+
 export function EnquiryRowActions({
   id,
   status,
@@ -27,13 +30,19 @@ export function EnquiryRowActions({
   const [which, setWhich] = useState<Which | null>(null);
   const who = name ? `enquiry from ${name}` : "enquiry";
 
-  const act = (w: Which, fn: () => Promise<void>, done: string) => () => {
-    setWhich(w);
-    startTransition(async () => {
-      await fn();
-      announce(done);
-    });
-  };
+  const act =
+    (w: Which, fn: () => Promise<{ ok: boolean }>, done: string) => () => {
+      setWhich(w);
+      startTransition(async () => {
+        try {
+          const res = await fn();
+          announce(res.ok ? done : UPDATE_FAILED);
+        } catch {
+          // A thrown action (network failure, server error) is a failure too.
+          announce(UPDATE_FAILED);
+        }
+      });
+    };
 
   const label = (w: Which, icon: ReactNode, text: string) =>
     pending && which === w ? (
@@ -90,8 +99,12 @@ export function EnquiryRowActions({
           if (window.confirm("Delete this enquiry?")) {
             setWhich("delete");
             startTransition(async () => {
-              await deleteEnquiry(id);
-              announce(`Deleted ${who}.`);
+              try {
+                const res = await deleteEnquiry(id);
+                announce(res.ok ? `Deleted ${who}.` : DELETE_FAILED);
+              } catch {
+                announce(DELETE_FAILED);
+              }
             });
           }
         }}

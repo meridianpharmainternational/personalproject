@@ -50,11 +50,11 @@ export default function PrivacyPage() {
 
       <LegalSection title="Stored on your device">
         <p>
-          Your enquiry list is kept in your browser&rsquo;s local storage until you send or clear it. If
-          you tick &ldquo;Remember my details on this device&rdquo;, your name, email, country, company and
-          phone number are also saved there, so the form is filled in next time. This information stays on
-          your device. Untick the option when you next send an enquiry, or clear your browser&rsquo;s site
-          data, to remove it.
+          Your enquiry list is kept in your browser&rsquo;s local storage until you send or clear it.
+          &ldquo;Remember my details on this device&rdquo; is ticked by default. While it is ticked, sending
+          an enquiry saves your name, email, country, company and phone number in your browser, so the form
+          is filled in next time. This information stays on your device. Untick the box before you send, or
+          clear your browser&rsquo;s site data, to remove it.
         </p>
       </LegalSection>
 

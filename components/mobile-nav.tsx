@@ -41,7 +41,7 @@ export function MobileNav({
       <div className="backdrop" onClick={onClose} aria-hidden="true" />
       <aside className="drawer drawer--full" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="drawer-head">
-          <h2 id={titleId} ref={titleRef} tabIndex={-1} className="drawer-title outline-none">
+          <h2 id={titleId} ref={titleRef} tabIndex={-1} className="drawer-title outline-0">
             Menu
           </h2>
           <button type="button" className="icon-btn icon-btn-bare" onClick={onClose} aria-label="Close menu">

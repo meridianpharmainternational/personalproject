@@ -50,14 +50,22 @@ function useDrawerFootLift(active: boolean): number | null {
   return active ? lift : null;
 }
 
+const lineCount = (k: number) => `${k} line${k === 1 ? "" : "s"}`;
+
+/** "2 lines updated to the packs you pasted" (lines already listed that took pasted packs). */
+const updatedNote = (k: number) => `${lineCount(k)} updated to the packs you pasted`;
+
 /**
  * One toast at a time. Store "flash" events (every add) become
  * "Cenforce 100 added · 4 products · [View list] [Undo]" (or "already in your
  * list", or "Your list is full" at MAX_ITEMS; a partly cut batch adds
- * "· list full, N not added"). Auto-dismisses after 5 s, pausing while hovered
- * or focused.
+ * "· list full, N not added"; a paste that changed packs on listed lines adds
+ * "· N lines updated to the packs you pasted"). Undo removes the added lines and
+ * puts back any "to be advised" lines they replaced. Auto-dismisses after 5 s,
+ * pausing while hovered or focused.
  * Announcements go through <LiveRegion/>, so the toast itself has no live role
- * (avoids double announcements).
+ * (avoids double announcements). They also cover the drawer's "Add N pasted
+ * lines & continue", where the paste box and its own status unmount.
  */
 export function EnquiryToast() {
   const { flash, open } = useEnquiryList();
@@ -79,36 +87,58 @@ export function EnquiryToast() {
     const n = snap.items.length;
     const count = `${n} product${n === 1 ? "" : "s"}`;
     const viewList = { label: "View list", run: () => enquiryList.open() };
+    // Lines already listed that took the packs a paste named.
+    const note = flash.updated > 0 ? updatedNote(flash.updated) : "";
+    const dupes = flash.duplicates > 0 ? ` (${flash.duplicates} already listed)` : "";
     if (flash.full && flash.keys.length === 0) {
       // Nothing fitted. Shown even inside the drawer: nothing else would change there.
-      const msg = `Your list is full (${MAX_ITEMS} lines). Send this enquiry, then start another.`;
+      const msg = `Your list is full (${MAX_ITEMS} lines). Send this enquiry, then start another.${
+        note ? ` ${note}.` : ""
+      }`;
       toast.show(msg, snap.open ? undefined : [viewList]);
       announce(msg);
     } else if (flash.already) {
       if (!snap.open) toast.show(`${flash.name} is already in your list`, [viewList]);
       announce(`${flash.name} is already in your enquiry list.`);
+    } else if (flash.keys.length === 0) {
+      // Nothing new, but a paste changed packs on lines already listed (`name`
+      // names those lines). No Undo: it would have nothing to remove. Inside the
+      // drawer the packs change in place.
+      if (!snap.open) toast.show(`${flash.name}: packs updated${dupes} · ${count}`, [viewList]);
+      announce(`${flash.name}: packs updated${dupes}. ${count} in your enquiry list.`);
     } else {
-      const keys = flash.keys;
-      const dupes = flash.duplicates > 0 ? ` (${flash.duplicates} already listed)` : "";
+      const { keys, replaced } = flash;
       // Some lines were added, the rest hit MAX_ITEMS.
       const cut = flash.full && flash.skipped > 0 ? flash.skipped : 0;
       const undo = {
         label: "Undo",
         run: () => {
-          enquiryList.removeKeys(keys);
-          announce(`${flash.name} removed from your enquiry list.`);
+          // Removes the added lines and restores any "to be advised" lines they
+          // replaced, in one commit, so Undo never drops the product outright.
+          enquiryList.undoAdd({ keys, replaced });
+          const listed = new Set(enquiryList.getSnapshot().items.map((i) => i.key));
+          const back = replaced.filter((r) => listed.has(r.line.key));
+          announce(
+            back.length === 0
+              ? `${flash.name} removed from your enquiry list.`
+              : back.length === 1
+                ? `${flash.name} removed. ${back[0].line.name}, strength to be advised, is back in your enquiry list.`
+                : `${flash.name} removed. ${back.length} "to be advised" lines are back in your enquiry list.`,
+          );
         },
       };
       // Inside the drawer the new lines flash in place, so the toast only
       // appears there when some lines were cut, which the list can't show.
       if (!snap.open || cut) {
         toast.show(
-          `${flash.name} added${dupes} · ${count}${cut ? ` · list full, ${cut} not added` : ""}`,
+          `${flash.name} added${dupes} · ${count}${note ? ` · ${note}` : ""}${cut ? ` · list full, ${cut} not added` : ""}`,
           snap.open ? [undo] : [viewList, undo],
         );
       }
       announce(
-        `${flash.name} added${dupes}. ${count} in your enquiry list.${cut ? ` List full, ${cut} not added.` : ""}`,
+        `${flash.name} added${dupes}. ${count} in your enquiry list.${note ? ` ${note}.` : ""}${
+          cut ? ` List full, ${cut} not added.` : ""
+        }`,
       );
     }
     enquiryList.dismissFlash();

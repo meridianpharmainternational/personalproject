@@ -13,7 +13,7 @@ import {
 } from "react";
 import { AlertCircle, Check } from "lucide-react";
 import { useCatalogIndexState, type IndexItem } from "@/lib/catalog-index";
-import { enquiryList, type AddInput } from "@/lib/enquiry-list";
+import { enquiryList, MAX_ITEMS, type AddInput } from "@/lib/enquiry-list";
 import { customId, toAddInput } from "@/lib/enquiry-actions";
 import { norm } from "@/lib/search-text";
 
@@ -355,8 +355,83 @@ const describe = (i: IndexItem) => [i.molecule, i.form].filter(Boolean).join(" �
 /** The strength was kept as typed ("300") because the product doesn't list it. */
 const offList = (p: Parsed) => !!p.match && !!p.strength && !p.match.strengths.includes(p.strength);
 
-/** What the drawer can call through `handleRef`: add every previewed line, returning how many. */
+/**
+ * What the drawer can call through `handleRef`: add every previewed line, returning how many
+ * new lines the list took (lines already listed, or cut by the list cap, are not counted).
+ */
 export type PasteListHandle = { add: () => number };
+
+/**
+ * What one Add did: lines added (`custom` of them as custom requests), lines already listed
+ * that took the pasted packs, other lines already listed, and lines cut by the cap.
+ */
+export type Added = { n: number; custom: number; updated: number; dup: number; cut: number };
+
+const lineCount = (k: number) => `${k} line${k === 1 ? "" : "s"}`;
+
+/**
+ * "1 line updated to the packs you pasted", for the visible note. Screen readers hear it from
+ * the store's flash (flash.updated), which EnquiryToast announces through LiveRegion.
+ */
+const updatedNote = (updated: number) => `${lineCount(updated)} updated to the packs you pasted`;
+
+/**
+ * Add pasted lines to the enquiry list and report what it took. Unlike a card or row add, a
+ * pasted line can state its packs ("Cenforce 100 x 50"). When such a line is already listed
+ * (the same product and strength, or no strength for a product listed on one line), that line
+ * takes the pasted packs, replacing its old count, as the product page does. Lines with no
+ * packs leave a listed line as it is.
+ *
+ * The cap count is the store's own result for this add (addMany sets its flash synchronously),
+ * so a line the store skips as already listed is never reported as cut by the list cap.
+ */
+export function addPasted(inputs: AddInput[]): Added {
+  if (!inputs.length) return { n: 0, custom: 0, updated: 0, dup: 0, cut: 0 };
+  const had = new Set(enquiryList.getSnapshot().items.map((i) => i.key));
+  // applyQty: pasted packs also update lines already listed (first pasted line per line wins;
+  // a line with no strength only updates a product still on exactly one line). The store
+  // reports those in flash.updated, so the toast and this note agree.
+  enquiryList.addMany(inputs, { applyQty: true });
+  const { items, flash } = enquiryList.getSnapshot();
+  const cut = flash?.skipped ?? 0;
+  const updated = flash?.updated ?? 0;
+  const fresh = items.filter((i) => !had.has(i.key));
+
+  return {
+    n: fresh.length,
+    custom: fresh.filter((i) => i.medicineId.startsWith("custom:")).length,
+    updated,
+    // Neither new, updated nor cut: already listed (or a repeat of a line earlier in the box).
+    dup: Math.max(0, inputs.length - fresh.length - updated - cut),
+    cut,
+  };
+}
+
+/**
+ * The visible note after an Add, from what the list actually took: "3 lines added to your
+ * list", "2 lines added · 2 already in your list", "1 line updated to the packs you pasted",
+ * "All 4 lines are already in your list".
+ */
+export function addedNote({ n, custom, updated, dup, cut }: Added): string {
+  const listed = dup ? `${dup} already in your list` : "";
+  if (!n) {
+    const also = [updated ? updatedNote(updated) : "", listed].filter(Boolean).join(" · ");
+    if (cut) {
+      return `Your list is full (${MAX_ITEMS} lines), so ${lineCount(cut)} ${cut === 1 ? "was" : "were"} not added${
+        also ? ` · ${also}` : ""
+      }.`;
+    }
+    if (updated) return `${also}.`;
+    return dup === 1 ? "This line is already in your list." : `All ${dup} lines are already in your list.`;
+  }
+  const asCustom = custom ? ` (${custom} as ${custom === 1 ? "a custom request" : "custom requests"})` : "";
+  const rest = [
+    updated ? `${updated} updated to the packs you pasted` : "",
+    listed,
+    cut ? `list full, ${cut} not added` : "",
+  ].filter(Boolean);
+  return `${[`${lineCount(n)} added${rest.length ? "" : " to your list"}${asCustom}`, ...rest].join(" · ")}.`;
+}
 
 /**
  * The text and choices are owned by the drawer (so unadded lines survive step changes and
@@ -385,7 +460,7 @@ export function PasteList({
   const id = useId();
   const textRef = useRef<HTMLTextAreaElement>(null);
   /** The last Add, for the status line; cleared as soon as the buyer types again. */
-  const [added, setAdded] = useState<{ n: number; custom: number } | null>(null);
+  const [added, setAdded] = useState<Added | null>(null);
   // Lines are only classified against a loaded index: while it is loading or
   // unavailable nothing is parsed, so nothing is wrongly sent as a custom request.
   const { index, status, retry } = useCatalogIndexState(open || text.length > 0);
@@ -408,16 +483,19 @@ export function PasteList({
     onPending?.(status === "ready" ? lines.length : 0);
   }, [status, lines.length, onPending]);
 
-  /** Add every previewed line; does not move focus (the drawer calls it too). */
+  /**
+   * Add every previewed line; does not move focus (the drawer calls it too). Returns how many
+   * new lines the list took. The store's flash, announced by EnquiryToast through LiveRegion,
+   * covers the added, already-listed and updated lines (and any cut by the cap), so the note
+   * set here is visible text only.
+   */
   const addLines = (): number => {
     if (status !== "ready" || !lines.length) return 0;
-    const inputs = lines.map(toInput);
-    enquiryList.addMany(inputs);
+    const result = addPasted(lines.map(toInput));
     onText("");
     onPicks({});
-    const custom = inputs.filter((i) => i.medicineId.startsWith("custom:")).length;
-    setAdded({ n: inputs.length, custom });
-    return inputs.length;
+    setAdded(result);
+    return result.n;
   };
 
   // No deps: the handle always sees the current lines.
@@ -458,7 +536,8 @@ export function PasteList({
           Anything we can&rsquo;t find is sent as a custom request.
         </p>
 
-        {/* Always rendered, so the note is announced when it appears. */}
+        {/* Always rendered, so the catalogue error is announced when it appears. The result
+            of an Add is not announced here: the store's flash already says it. */}
         <div role="status">
           {status === "error" && (
             <p className="mt-4 flex items-start gap-2 text-sm">
@@ -493,16 +572,9 @@ export function PasteList({
             Add {lines.length || ""} line{lines.length === 1 ? "" : "s"}
           </button>
         </div>
-        {/* Always rendered, so the confirmation is announced when it appears. */}
-        <p role="status" className="mt-3 text-sm text-fg-strong">
-          {added
-            ? `${added.n} line${added.n === 1 ? "" : "s"} added to your list${
-                added.custom
-                  ? ` (${added.custom} as ${added.custom === 1 ? "a custom request" : "custom requests"})`
-                  : ""
-              }.`
-            : ""}
-        </p>
+        {/* Visible text only: the store's flash, announced by EnquiryToast through LiveRegion,
+            already covers the added, already-listed and updated lines. */}
+        {added && <p className="mt-3 text-sm text-fg-strong">{addedNote(added)}</p>}
 
         {lines.length > 0 && (
           <>

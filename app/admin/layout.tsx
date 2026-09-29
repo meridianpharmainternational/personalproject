@@ -21,7 +21,10 @@ export default async function AdminLayout({
   children: ReactNode;
 }) {
   const { email } = await requireAdmin();
-  const counts = await adminCounts();
+  // A counts failure only drops the nav badge; it must not take the admin
+  // chrome (View site, Sign out) down with it. The page's own read still
+  // throws into the (admin) error boundary.
+  const counts = await adminCounts().catch(() => null);
 
   return (
     <>
@@ -30,7 +33,7 @@ export default async function AdminLayout({
           <p className="kicker order-1 py-3 lg:py-0">Admin</p>
 
           <AdminNav
-            newEnquiries={counts.newEnquiries}
+            newEnquiries={counts?.newEnquiries}
             className="order-3 -ml-3 w-full sm:-ml-4 lg:order-2 lg:ml-0 lg:w-auto"
           />
 

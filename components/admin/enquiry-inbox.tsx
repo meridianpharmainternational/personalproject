@@ -77,7 +77,10 @@ export function EnquiryInbox({
       const url = new URL(window.location.href);
       if (next === "all") url.searchParams.delete("status");
       else url.searchParams.set("status", next);
-      window.history.replaceState(window.history.state, "", url);
+      // Pass our own state (not Next's, which carries __NA): Next's patched
+      // replaceState then copies its internals over and syncs the router's
+      // canonical URL, so later server-action refreshes keep ?status.
+      window.history.replaceState(null, "", url);
     } catch {
       /* ignore */
     }

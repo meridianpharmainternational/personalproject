@@ -78,6 +78,10 @@ const PRODUCT_FIXES = {
   // Anti-Parasitic category missed them. Form uses the one topical spelling
   // ("Cream / Gel", as tretinoin) so the Dosage form facet has one option.
   "steroid-tablets-ivermectin": { molecule: "Ivermectin", category: "anti-parasitic", form: "Cream / Gel" },
+  // Source misspelt the INN "Fluoxymesterolone"; the correct name is
+  // fluoxymesterone. The molecule feeds the home A–Z, the Molecule facet, the
+  // molecule landing h1/<title>, the sitemap and search.
+  "steroid-tablets-fluoxymesterolone": { molecule: "Fluoxymesterone" },
   // Pending owner decision: "steroid-tablets-tretinoin" (6 topical creams and
   // gels) is still filed under Oral Therapies. The 8 category names are fixed,
   // so the owner picks the target; then add { category: "<slug>" } here and
@@ -100,6 +104,18 @@ const BRAND_FIXES = {
     molecule: "Sildenafil Citrate + Dapoxetine",
     strengths: "100 mg + 100 mg",
   },
+  // These brands have no strengths in the source, so they fell back to the
+  // molecule's whole list (e.g. Cenforce Soft 100 showed 25-250 mg in 8
+  // strengths; BANDY showed ZBD Plus's 6/12 mg). The strength chips, the
+  // Strength facet and search then offered strengths the source never states.
+  // "On request" until the owner confirms. Cenforce Soft 100's name states
+  // its strength.
+  "ed-medicines-sildenafil::Cenforce Soft 100": { strengths: "100 mg" },
+  "ed-medicines-sildenafil::Cenforce Ld": { strengths: "On request" },
+  "ed-medicines-sildenafil::Cenforce FM": { strengths: "On request" },
+  "anti-parasitic-albendazole::BANDY": { strengths: "On request" },
+  "steroid-injections-nandrolone::NANDROLONE DECANOATE": { strengths: "On request" },
+  "steroid-tablets-isotretinoin::TRETIVA": { strengths: "On request" },
   // Pack sizes were stored as strengths ("1 % w/w (30 g)", "… ampoules"),
   // adding Strength-facet options that are not strengths. Strength keeps the
   // concentration; the pack moves to `pack`. The ivermectin COVILIFE cream
@@ -138,7 +154,16 @@ function cleanStrengths(brand, product) {
     ...new Set((arr || []).filter((s) => s && s !== "-" && String(s).trim()).map(normStrength)),
   ];
   let s = pick(brand.strengths);
-  if (!s.length) s = pick(product.strengths);
+  if (!s.length) {
+    s = pick(product.strengths);
+    // The product list covers every brand of the molecule, so it is rarely
+    // this brand's strengths. Flag it so a BRAND_FIXES entry can be added.
+    console.warn(
+      `  ! strengths: "${product.id}::${brand.name}" has none in the source; ` +
+        `fell back to the product list (${s.join(", ") || "On request"}). ` +
+        `Add a BRAND_FIXES entry.`,
+    );
+  }
   return s.join(", ") || "On request";
 }
 

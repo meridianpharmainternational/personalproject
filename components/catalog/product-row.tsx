@@ -5,14 +5,17 @@ import Link from "next/link";
 import { useEnquiryList } from "@/lib/enquiry-list";
 import { AddToEnquiry } from "@/components/enquiry/add-to-enquiry";
 import type { CatalogItem } from "@/lib/catalog";
-import { keepTogether } from "@/lib/format";
-import { orderStrengths } from "@/components/catalog/catalog-model";
+import { emphStrength, strengthLine } from "@/components/catalog/catalog-model";
+
+/** Strengths named before the "+N more" remainder (spec §6: at most 3, then +N). */
+const MAX_STRENGTHS = 3;
 
 /**
- * Dense list row (mobile default view): 64px thumb, name + "molecule · form ·
- * strengths" (clamped to two lines; the 64px thumb still sets the row height),
- * 44px Add icon button. About 6 products fit on a phone screen.
- * Render inside a <ul>/<ol>.
+ * Dense list row (mobile default view): 64px thumb, then the name over two
+ * one-line subs, "molecule · form" and "strengths +N more" (each truncated, so
+ * the strengths always keep their own line; the 64px thumb still sets the row
+ * height), then the 44px Add icon button. About 6 products fit on a phone
+ * screen. Render inside a <ul>/<ol>.
  */
 export function ProductRow({
   item,
@@ -25,14 +28,17 @@ export function ProductRow({
   index?: number;
   /**
    * Strengths to surface first (see strengthEmphasis in catalog-model), so the
-   * matched strength shows before the list is cut to three. Omitted (home rail,
-   * related products): stored order.
+   * matched strength shows before the list is cut to three, and a single matched
+   * strength is what Add puts on the enquiry line (not Any). Omitted (home rail,
+   * related products): stored order, default strength.
    */
   emph?: ReadonlySet<string>;
 }) {
   const { items } = useEnquiryList();
   const inList = items.some((i) => i.medicineId === item.id);
   const abbr = (item.form ?? "PRD").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "PRD";
+  const meta = [item.molecule, item.form].filter(Boolean).join(" · ");
+  const { shown, more } = strengthLine(item.strengths, emph, MAX_STRENGTHS);
 
   return (
     <li
@@ -51,13 +57,18 @@ export function ProductRow({
         <p className="prow-title">
           <Link href={`/medicines/${item.id}`}>{item.name}</Link>
         </p>
-        <p className="prow-sub line-clamp-2">
-          {[item.molecule, item.form, orderStrengths(item.strengths, emph).slice(0, 3).map(keepTogether).join(", ")]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
+        {meta && <p className="prow-sub truncate">{meta}</p>}
+        {shown && (
+          // The remainder never shrinks, so a long first strength is what gets the
+          // ellipsis and "+N more" stays readable even at 320px. Its spaces are
+          // no-break spaces: a plain leading space would collapse in the flex item.
+          <p className="prow-sub flex min-w-0">
+            <span className="truncate">{shown}</span>
+            {more > 0 && <span className="shrink-0 whitespace-nowrap">{` +${more} more`}</span>}
+          </p>
+        )}
       </div>
-      <AddToEnquiry product={item} variant="icon" />
+      <AddToEnquiry product={item} strength={emphStrength(item.strengths, emph)} variant="icon" />
     </li>
   );
 }

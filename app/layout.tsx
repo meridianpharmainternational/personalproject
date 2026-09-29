@@ -68,8 +68,16 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
-        {/* Gates scroll-reveal so all content stays visible without JavaScript. */}
-        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
+        {/* Gates scroll-reveal so all content stays visible without JavaScript.
+            RevealObserver sets window.__mpReveal when it starts. If it hasn't
+            within 3s (the bundle is slow, fails to load, or throws before
+            hydrating), drop the gate so `.reveal` blocks don't stay hidden. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "document.documentElement.classList.add('js');setTimeout(function(){if(!window.__mpReveal)document.documentElement.classList.remove('js')},3000)",
+          }}
+        />
       </head>
       <body className="flex min-h-screen flex-col">
         <a href="#main" className="skip-link">

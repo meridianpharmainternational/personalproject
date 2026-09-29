@@ -1,4 +1,4 @@
-import { adminGetEnquiries } from "@/lib/admin/data";
+import { adminGetEnquiryInbox } from "@/lib/admin/data";
 import { EnquiryInbox, type InboxTab } from "@/components/admin/enquiry-inbox";
 
 export const metadata = { title: "Enquiries" };
@@ -10,9 +10,11 @@ export default async function AdminEnquiriesPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  const [enquiries, sp] = await Promise.all([adminGetEnquiries(), searchParams]);
+  const [{ enquiries, total, newTotal }, sp] = await Promise.all([
+    adminGetEnquiryInbox(),
+    searchParams,
+  ]);
   const initialTab = TAB_KEYS.find((k) => k === sp.status) ?? "all";
-  const newCount = enquiries.filter((e) => e.status === "new").length;
 
   return (
     <div>
@@ -20,9 +22,16 @@ export default async function AdminEnquiriesPage({
         <p className="kicker">Inbox</p>
         <h1 className="mt-2 text-h2">Enquiries</h1>
         <p className="mt-2 text-fg-muted">
-          <span className="font-mono">{enquiries.length}</span> received ·{" "}
-          <span className="font-mono">{newCount}</span> new
+          <span className="font-mono">{total}</span> received ·{" "}
+          <span className="font-mono">{newTotal}</span> new
         </p>
+        {total > enquiries.length ? (
+          <p className="mt-1 text-sm text-fg-muted">
+            Showing the latest <span className="font-mono">{enquiries.length}</span> of{" "}
+            <span className="font-mono">{total}</span>. Archive or delete older enquiries to see the
+            rest.
+          </p>
+        ) : null}
       </header>
 
       <div className="mt-8">

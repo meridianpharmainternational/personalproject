@@ -352,8 +352,15 @@
 .search-input:focus-visible { outline:2px solid var(--navy-600); outline-offset:0; border-color:var(--navy-600); background:#fff; }
 .search-icon { position:absolute; left:.875rem; top:50%; translate:0 -50%; width:20px; height:20px; color:var(--text-muted); pointer-events:none; }
 .search-kbd { position:absolute; right:.625rem; top:50%; translate:0 -50%; }
+/* Height cap: 9rem = utility bar (44px) + header (72px) + 8px gap + ~20px clear of the viewport bottom
+   at the top of a desktop page (less once the utility bar has scrolled away; the tablet panel is fixed
+   at header + 8px), so it holds six two-line product rows plus the Molecules group on common laptop
+   screens. The vh line is the fallback where dvh is unsupported. */
 .search-panel { position:absolute; z-index:55; top:calc(100% + 8px); right:0; width:max(100%, 36rem); max-width:calc(100vw - 2 * var(--pad));
-  max-height:min(70vh, 36rem); overflow-y:auto; background:var(--canvas); border-radius:var(--r-2); box-shadow:var(--shadow-pop); animation:mr-pop 160ms var(--ease-out); }
+  max-height:min(calc(100vh - 9rem), 44rem); max-height:min(calc(100dvh - 9rem), 44rem); overflow-y:auto;
+  /* Focus scrolling (ArrowDown/Tab through the rows) stops above the sticky 52px foot (WCAG 2.4.11). */
+  scroll-padding-bottom:52px;
+  background:var(--canvas); border-radius:var(--r-2); box-shadow:var(--shadow-pop); animation:mr-pop 160ms var(--ease-out); }
 /* Tablet: the header search box is narrow and sits mid-row, so a right-anchored 36rem panel would spill
    off the left edge. Span the page gutter instead. Safe as fixed: the utility bar is hidden below 1024px,
    so the sticky header is always at y=0, and no header ancestor has a transform/filter/contain. */
@@ -365,10 +372,20 @@
 .search-group-title { padding:.5rem 1rem; }
 .search-row { position:relative; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:1rem; min-height:56px; padding:.25rem .5rem .25rem 1rem; }
 .search-row.is-active, .search-row:focus-within { background:var(--paper); }
+/* Molecule, category and popular rows are links as wide as the panel's overflow-y scroller, which clips
+   the sides of an outset ring (and the sticky foot paints over its bottom edge): draw it inset, like .tab. */
+.search-row:focus-visible { outline-offset:-2px; }
 .search-row-title { font-weight:600; color:var(--text-strong); }
 .search-row-sub { font-size:.9375rem; color:var(--text-muted); }
 .search-row mark { background:none; color:var(--navy-600); font-weight:600; text-decoration:underline; text-underline-offset:.2em; }
 .search-foot { display:flex; justify-content:space-between; align-items:center; min-height:52px; padding:0 1rem; border-top:1px solid var(--rule); background:var(--paper); }
+/* Header panel: "See all N results" stays in view at the bottom edge while the rows scroll under it
+   (the partly covered row below its rule also shows the panel scrolls). Above the rows' z-index:1 Add
+   buttons. No effect in the mobile sheet, where the panel has no height cap and never scrolls itself. */
+.search-panel > .search-foot { position:sticky; bottom:0; z-index:2; }
+/* A focused product title brings its two sub lines (2 x 24.4px + the row's 4px bottom padding) clear of
+   the foot too, not just the title line. Only product titles are links with [data-row]. */
+.search-panel .search-row-title[data-row] { scroll-margin-bottom:54px; }
 .search-sheet { position:fixed; inset:0; z-index:62; display:flex; flex-direction:column; background:var(--canvas); animation:mr-fade var(--dur-2) var(--ease-out); }
 .search-sheet .search-panel { position:static; width:auto; max-width:none; max-height:none; flex:1; box-shadow:none; border-radius:0; animation:none; }
 .enq-btn { position:relative; display:inline-flex; align-items:center; gap:.625rem; min-height:44px; padding:0 .5rem 0 .875rem; flex:none;
@@ -584,6 +601,24 @@
 /* Below 400px that row is still too narrow for the default option: stack Strength above Packs. Lines
    without a select (a short note beside Packs) keep the shared row. */
 @media (max-width:399.98px) { .enq-line-fields:has(.select) { grid-template-columns:minmax(0,1fr); } }
+/* Short viewports (landscape phones, 150-200% desktop zoom): the enquiry drawer's fixed head, step tabs and
+   stacked footer (~257px) left the scrolling body a 32-133px slot. Tighter head, steps and footer padding
+   here; the body keeps its bottom padding. The close button stays 44px. */
+@media (max-height:600px) {
+  .drawer:has(> .drawer-steps) .drawer-head { min-height:52px; }
+  .drawer-steps { padding-top:.375rem; }
+  .drawer-steps li { padding-bottom:.375rem; }
+  .drawer-steps ~ .drawer-body { padding-top:.25rem; }
+  .drawer-steps ~ .drawer-foot { padding-block:.5rem calc(.5rem + env(safe-area-inset-bottom)); }
+}
+/* ...and a two-button footer (step 1: Continue + Keep browsing; step 2 without WhatsApp: Send + Back to
+   list) goes side by side where the drawer is >= 480px wide (it is 30rem from 640px, full width below):
+   ~73px instead of ~145px. The primary button takes the free width and a long label ("Add N pasted lines
+   & continue") wraps inside it. The WhatsApp step-2 footer and step 3 (Close over a button pair) stay stacked. */
+@media (max-height:600px) and (min-width:480px) {
+  .drawer-steps ~ .drawer-foot:has(> .btn:nth-child(2):last-child) { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
+  .drawer-steps ~ .drawer-foot:has(> .btn:nth-child(2):last-child) > .btn-lg { white-space:normal; text-align:center; }
+}
 .enq-line-remove { display:grid; place-items:center; width:44px; height:44px; border-radius:var(--r-1); color:var(--text-muted); }
 .enq-line.is-new { animation:mr-flash 900ms var(--ease-out); }
 .modal-wrap { position:fixed; inset:0; z-index:61; display:grid; place-items:center; padding:1rem; }
@@ -598,13 +633,24 @@
 @media (min-width:768px) { .toast { left:24px; right:auto; bottom:24px; max-width:30rem; } }
 .toast-msg { flex:1; min-width:0; font-size:1rem; }
 .toast-action { display:inline-flex; align-items:center; min-height:44px; padding:0 .75rem; font-weight:600; color:var(--leaf-300); }
-/* Phones: when the message would get less than 12rem beside its actions, the actions wrap onto a
-   right-aligned row beneath it (the toast grows upward from its fixed bottom). A one-action toast on a
-   360px+ phone, and every toast from 768px (shrink-to-fit, 30rem max), stays on one row. */
+/* Phones: the toast grows upward from its fixed bottom.
+   - One-action toast: stays on one row from 360px. Narrower, where the message would get less than
+     12rem beside the action, the action wraps onto a right-aligned row beneath it.
+   - Two-action toast (add: View list · Undo) below 480px: the message takes the whole first row and
+     both actions share a left-aligned row beneath it, the first action's label lined up with the
+     message text (its .75rem padding pulled into the toast's 1rem inset). Left, so neither action sits
+     over the Add-button column of the list row the toast covers. Without this, 12rem + View list fit
+     beside each other at ~340-430px but Undo didn't, so it wrapped alone. From 480px both actions fit
+     beside a 12rem+ message on one row.
+   - Every toast from 768px (shrink-to-fit, 30rem max) stays on one row. */
 @media (max-width:767.98px) {
   .toast { flex-wrap:wrap; row-gap:0; }
   .toast-msg { flex:1 1 12rem; padding-block:.5rem; }
   .toast-action:first-of-type { margin-left:auto; }
+}
+@media (max-width:479.98px) {
+  .toast:has(> .toast-action + .toast-action) > .toast-msg { flex-basis:100%; }
+  .toast:has(> .toast-action + .toast-action) > .toast-action:first-of-type { margin-left:-.75rem; }
 }
 /* Enquiry bar showing (it exists only below 1024px; from 1024px it is display:none and the toast keeps
    its default bottom): toasts stack above it.
@@ -642,6 +688,20 @@ html:has(.bulk-bar) { scroll-padding-bottom:calc(60px + 32px); }
 @media (max-width:1023.98px) {
   html:has(.enq-bar.is-visible) { scroll-padding-bottom:calc(68px + 16px + env(safe-area-inset-bottom)); }
   html:has(.enq-bar.is-visible):has(.bulk-bar) { scroll-padding-bottom:calc(80px + 60px + 16px + env(safe-area-inset-bottom)); }
+}
+/* Toast showing (5 s after every add): it sits over the enquiry bar and the bulk bar, so focus scrolling
+   (Add, Tab, Tab, Add...) must stop above it too. The toast exists in the DOM only while shown.
+   Below 768px it wraps to two rows (message over the actions: ~94px, ~120px with a two-line message), so
+   128px; from 768px it stays on one row (56px, 86px with a three-line message), so 88px. Bottom offsets:
+   16px (24px from 768px), or 80px above the enquiry bar (below 1024px only); plus 16px clearance. At equal
+   specificity these follow the bar rules above, and every toast allowance is taller than the bulk bar. */
+@media (max-width:767.98px) {
+  html:has(.toast) { scroll-padding-bottom:calc(16px + 128px + 16px + env(safe-area-inset-bottom)); }
+  html:has(.enq-bar.is-visible):has(.toast) { scroll-padding-bottom:calc(80px + 128px + 16px + env(safe-area-inset-bottom)); }
+}
+@media (min-width:768px) { html:has(.toast) { scroll-padding-bottom:calc(24px + 88px + 16px); } }
+@media (min-width:768px) and (max-width:1023.98px) {
+  html:has(.enq-bar.is-visible):has(.toast) { scroll-padding-bottom:calc(80px + 88px + 16px + env(safe-area-inset-bottom)); }
 }
 .back-to-top { position:fixed; z-index:44; right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); }
 /* Table view with rows selected: sit above the sticky bulk bar (60px tall at bottom:16px, + 12px) instead
@@ -751,4 +811,34 @@ body:has(.bulk-bar) .back-to-top { bottom:calc(88px + env(safe-area-inset-bottom
   .badge-code.is-match { outline:2px solid CanvasText; outline-offset:1px; }
   .hero-art, .bg-columns::before, .corner-ticks::after { display:none; }
   .pcard::before { background:Highlight; }
+  /* Selected states drawn with background, an SVG tick or box-shadow vanish when the system palette
+     replaces backgrounds and drops shadows. Checkboxes and radios go back to the native control (system
+     tick and dot); pressed toggles, current tabs/links and the current nav-sheet row get system colours.
+     The pressed toggles opt out of adjustment, so their focus ring is set to a system colour too. */
+  .check input { -webkit-appearance:auto; appearance:auto; }
+  .segmented button[aria-pressed="true"], .toggle-chip[aria-pressed="true"] {
+    forced-color-adjust:none; background:Highlight; color:HighlightText; border-color:Highlight; outline-color:CanvasText; }
+  .tab[aria-selected="true"]::after, .tab[aria-current="page"]::after, .nav-link[aria-current="page"]::after, .cat-link[aria-current="page"]::after {
+    forced-color-adjust:none; background:CanvasText; }
+  .nav-row[aria-current="page"] { border-left:3px solid CanvasText; padding-left:calc(1.25rem - 3px); }
+  /* The image wells' paper becomes Canvas (black in dark themes), and a multiplied pack shot turns into
+     a black box: the opaque photos (their own light backgrounds) are shown as they are. */
+  .pcard-media img, .pdp-media img { mix-blend-mode:normal; }
+  /* The navy data-URI chevrons are kept but vanish on a dark Canvas. Selects go back to the native
+     control (system arrow); the disclosure arrow is redrawn in CanvasText through a mask of the same SVG. */
+  .select, .hero-search select { -webkit-appearance:auto; appearance:auto; background-image:none; }
+  .filter-group > summary::after { forced-color-adjust:none; background:CanvasText;
+    -webkit-mask:var(--svg-chevron) center / 16px no-repeat; mask:var(--svg-chevron) center / 16px no-repeat; }
+  /* Transparent step underlines are painted in CanvasText, so every step looked current: keep the
+     others' underline invisible (Canvas) and mark only the current step, in Highlight. */
+  .drawer-steps li, .drawer-steps .is-done { forced-color-adjust:none; color:CanvasText; border-bottom-color:Canvas; }
+  .drawer-steps [aria-current="step"] { color:CanvasText; border-bottom-color:Highlight; }
+  /* The matched part of a search result: the author's transparent background keeps its alpha, so the
+     forced MarkText (black) sat on a black Canvas in dark themes and the match vanished. */
+  .search-row mark { background-color:Mark; color:MarkText; }
+  /* Box-shadow is dropped, and it was the only outer edge of these floating surfaces. Only the header
+     panel is framed: the mobile sheet's panel fills the screen, the drawer's inline panel has a border. */
+  .search > .search-panel, .toast, .bulk-bar { border:1px solid CanvasText; }
+  .toast { border-left-width:4px; }
+  .enq-bar { border-top:1px solid CanvasText; }
 }

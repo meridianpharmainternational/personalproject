@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, ClipboardList, Copy, MessageCircle, Minus, Plus, Trash2, X } from "lucide-react";
 import { enquiryList, itemKey, toLines, useEnquiryList, type EnquiryItem } from "@/lib/enquiry-list";
@@ -221,6 +230,21 @@ export function EnquiryDrawer() {
     if (mounted && !closing) requestAnimationFrame(() => titleRef.current?.focus({ preventScroll: true }));
   }, [step, mounted, closing]);
 
+  // Steps share one scrolling body: start each step at its top, not where the
+  // last step was scrolled to. Runs before the paint (and before the paste
+  // box's scroll effect), so the new step never shows mid-way down.
+  useLayoutEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, [step]);
+
+  // What the buyer can see now. A send's result can land after the drawer was
+  // closed or sent back to step 1, and onSent/onFailed are the ones the form
+  // had when it submitted, so they read this rather than their render's state.
+  const view = useRef<{ shown: boolean; step: Step }>({ shown: false, step: 1 });
+  useEffect(() => {
+    view.current = { shown: mounted && !closing, step };
+  }, [mounted, closing, step]);
+
   if (!mounted) return null;
 
   const n = items.length;
@@ -237,8 +261,29 @@ export function EnquiryDrawer() {
     enquiryList.removeKeys(sent.map((i) => i.key));
     setWaSent(false);
     setStep(3);
+    // Closed (or closing) while "Sending…" showed: step 3 is never seen, and the
+    // next open starts on the list, so confirm the send here instead.
+    if (!view.current.shown) toast.show("Enquiry sent. Our export team will reply by email within 1 business day.");
     announce("Enquiry sent. Our export team will reply by email within one business day.");
   };
+
+  // The form shows a failed send in its own error summary, which is only seen
+  // on step 2 of an open drawer. Anywhere else, say so and offer the way back.
+  const onFailed = (msg: string) => {
+    const { shown, step: at } = view.current;
+    if (shown && at === 2) return;
+    toast.show(
+      "Your enquiry wasn’t sent. Your list is unchanged.",
+      !shown
+        ? [{ label: "Open list", run: () => enquiryList.open() }]
+        : at === 1
+          ? [{ label: "Back to details", run: () => setStep(2) }]
+          : undefined,
+    );
+    announce(`Your enquiry wasn’t sent. ${msg}`);
+  };
+  // onFailed is called by EnquiryDetailsForm when submitEnquiry fails.
+  const formResults = { onSent, onFailed };
 
   // Continue adds any previewed paste lines first, so they are never dropped
   // by moving on without pressing the paste box's own Add button.
@@ -339,6 +384,8 @@ export function EnquiryDrawer() {
 
   // "+ Add another strength": the new line is grouped under its product (see
   // groupByProduct) and takes focus, since this button moves to the new line.
+  // refine: false because it means "another" line, so it never replaces a sole
+  // "to be advised" line.
   const addStrength = (line: EnquiryItem, strength: string) => {
     enquiryList.add({
       medicineId: line.medicineId,
@@ -348,7 +395,7 @@ export function EnquiryDrawer() {
       strengths: line.strengths,
       image: line.image,
       strength,
-    });
+    }, { refine: false });
     focusInList(`[data-uid="${lineUid(itemKey(line.medicineId, strength))}"] select`);
   };
 
@@ -368,7 +415,7 @@ export function EnquiryDrawer() {
       >
         <div className="drawer-grip" aria-hidden />
         <div className="drawer-head">
-          <h2 id={titleId} ref={titleRef} tabIndex={-1} className="drawer-title flex items-center gap-2 outline-none">
+          <h2 id={titleId} ref={titleRef} tabIndex={-1} className="drawer-title flex items-center gap-2 outline-0">
             <ClipboardList aria-hidden className="h-5 w-5 text-navy-700" />
             {step === 3 ? "Enquiry sent" : "Enquiry list"}
             {step !== 3 && (
@@ -436,7 +483,11 @@ export function EnquiryDrawer() {
               )}
 
               <div className="mt-6">
-                <p className="label">Add more products</p>
+                {/* The search field's own label reads the same words, so screen
+                    readers hear them once, as its name. */}
+                <p className="label" aria-hidden="true">
+                  Add more products
+                </p>
                 <ProductSearch mode="inline" />
               </div>
               <div ref={pasteRef} className="mt-4">
@@ -456,7 +507,7 @@ export function EnquiryDrawer() {
                 sentItems.current = items;
               }}
             >
-              <DetailsForm formId={formId} items={items} onSent={onSent} onPendingChange={setPending} />
+              <DetailsForm formId={formId} items={items} onPendingChange={setPending} {...formResults} />
             </div>
           )}
           {step === 2 && !DetailsForm && (
@@ -549,12 +600,14 @@ export function EnquiryDrawer() {
               {wa && waSent && n > 0 && (
                 <p className="flex flex-wrap items-center justify-center gap-x-1 text-fg-muted">
                   Sent on WhatsApp?
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={clearList}>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={clearList} disabled={pending}>
                     Clear these {n} line{n === 1 ? "" : "s"}
                   </button>
                 </p>
               )}
-              <button type="button" className="btn btn-ghost" onClick={() => setStep(1)}>
+              {/* Disabled while sending, so the result shows where it was sent
+                  from; closing stays possible (onSent/onFailed then use a toast). */}
+              <button type="button" className="btn btn-ghost" onClick={() => setStep(1)} disabled={pending}>
                 <ArrowLeft aria-hidden /> Back to list
               </button>
             </>

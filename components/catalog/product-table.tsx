@@ -8,7 +8,7 @@ import { enquiryList } from "@/lib/enquiry-list";
 import { toAddInput } from "@/lib/enquiry-actions";
 import { announce } from "@/lib/ui-store";
 import { AddToEnquiry } from "@/components/enquiry/add-to-enquiry";
-import { isRealStrength, tagStrengths } from "@/components/catalog/catalog-model";
+import { emphStrength, isRealStrength, tagStrengths } from "@/components/catalog/catalog-model";
 
 function Dash() {
   return (
@@ -96,13 +96,36 @@ export function ProductTable({
 
   const addSelected = () => {
     cancelCountAnnouncement();
-    enquiryList.addMany(selected.map((i) => toAddInput(i)));
+    // A row with one matched strength goes in with that strength, exactly like
+    // the row's own add button: it counts as already listed only when that exact
+    // strength is listed, a new strength is appended beside the product's other
+    // lines, and a sole "Any / to be advised" line is refined in place (keeping
+    // its packs; Undo restores it). With no named strength, a product already
+    // listed with a real strength is skipped as already listed (a null strength,
+    // which the store never adds beside a listed product) rather than gaining
+    // another line; anything else takes toAddInput's default.
+    const withStrength = new Set(
+      enquiryList
+        .getSnapshot()
+        .items.filter((l) => l.strength !== null)
+        .map((l) => l.medicineId),
+    );
+    enquiryList.addMany(
+      selected.map((i) => {
+        const s = emphStrength(i.strengths, emph);
+        return toAddInput(i, s !== undefined ? s : withStrength.has(i.id) ? null : undefined);
+      }),
+    );
     setSel(new Set());
     headRef.current?.focus();
   };
 
   // Column visibility: the results column is ~650px at 1024px with the sidebar, ~970px at its widest.
   const midCol = wide ? "hidden lg:table-cell" : "hidden xl:table-cell";
+  // While the Form column is hidden, the Product cell's sub-line carries the form
+  // ("Ivermectin · Tablets"), so same-named products (IVERHEAL Tablets / Cream)
+  // stay distinguishable; it hides again at the breakpoint where the column shows.
+  const formInSub = wide ? "lg:hidden" : "xl:hidden";
   const packCol = wide ? "hidden xl:table-cell" : "hidden 2xl:table-cell";
   // Strength chips stay on one line. With the sidebar open at lg+ the unbreakable
   // cells would outgrow the results column (and be clipped), so there they may
@@ -202,7 +225,21 @@ export function ProductTable({
                     <Link href={`/medicines/${it.id}`} className="pname underline-offset-2 hover:underline">
                       {it.name}
                     </Link>
-                    {it.molecule && <p className="psub">{it.molecule}</p>}
+                    {/* With no molecule the whole sub-line is the form, so the <p> itself hides
+                        (no empty line) once the Form column is visible. A no-break space binds
+                        the dot to the molecule and the form stays whole, so a wrap never starts
+                        a line with "·". */}
+                    {(it.molecule || it.form) && (
+                      <p className={it.molecule ? "psub" : `psub ${formInSub}`}>
+                        {it.molecule}
+                        {it.form && (
+                          <span className={formInSub}>
+                            {it.molecule ? " · " : ""}
+                            <span className="whitespace-nowrap">{it.form}</span>
+                          </span>
+                        )}
+                      </p>
+                    )}
                   </td>
                   <td className={`${midCol} whitespace-nowrap`}>{it.category?.name ?? <Dash />}</td>
                   <td className={`${midCol} whitespace-nowrap`}>{it.form ?? <Dash />}</td>
@@ -240,7 +277,7 @@ export function ProductTable({
                     <span className={`badge ${stock ? "badge-stock" : "badge-mto"}`}>{stock ? "In stock" : "Made to order"}</span>
                   </td>
                   <td className="text-right">
-                    <AddToEnquiry product={it} variant="icon" />
+                    <AddToEnquiry product={it} strength={emphStrength(it.strengths, emph)} variant="icon" />
                   </td>
                 </tr>
               );

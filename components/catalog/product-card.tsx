@@ -6,7 +6,7 @@ import { useEnquiryList } from "@/lib/enquiry-list";
 import { AddToEnquiry } from "@/components/enquiry/add-to-enquiry";
 import type { CatalogItem } from "@/lib/catalog";
 import { keepTogether } from "@/lib/format";
-import { tagStrengths } from "@/components/catalog/catalog-model";
+import { emphStrength, tagStrengths } from "@/components/catalog/catalog-model";
 
 /** Strength badges shown before the "+N" overflow badge (spec §6). */
 const MAX_STRENGTHS = 3;
@@ -85,7 +85,7 @@ export function ProductCard({
             .join(" · ")}
         </p>
         <div className="pcard-actions">
-          <AddToEnquiry product={item} />
+          <AddToEnquiry product={item} strength={emphStrength(item.strengths, emph)} />
         </div>
       </div>
     </article>

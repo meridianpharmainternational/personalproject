@@ -39,6 +39,13 @@ const BUYER_FIELDS: (keyof Details)[] = ["name", "email", "country", "company", 
  */
 let draft: Partial<Details> | null = null;
 
+/**
+ * The buyer's "Remember my details" choice for this page visit (null = not
+ * touched yet, so the default applies). Survives the drawer closing, and is
+ * kept after a send, so an opt-out lasts for the rest of the visit.
+ */
+let rememberChoice: boolean | null = null;
+
 /** Copy only the string values of `keys` from untrusted input (storage, watch()). */
 function pickText(v: unknown, keys: (keyof Details)[]): Partial<Details> {
   const out: Partial<Details> = {};
@@ -60,18 +67,21 @@ export function EnquiryDetailsForm({
   items,
   onSent,
   onPendingChange,
+  onFailed,
 }: {
   formId: string;
   items: EnquiryItem[];
   onSent: () => void;
   onPendingChange?: (pending: boolean) => void;
+  /** Called with the message when a send fails, so the drawer can announce it if this form isn't visible. */
+  onFailed?: (msg: string) => void;
 }) {
   const uid = useId();
   const pathname = usePathname();
   const summaryRef = useRef<HTMLDivElement>(null);
   // Honeypot: uncontrolled and not registered with react-hook-form.
   const hpRef = useRef<HTMLInputElement>(null);
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(() => rememberChoice ?? true);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -137,7 +147,9 @@ export function EnquiryDetailsForm({
       };
     }
     if (!res.ok) {
-      setServerError(res.error ?? "Something went wrong. Please try again.");
+      const msg = res.error ?? "Something went wrong. Please try again.";
+      setServerError(msg);
+      onFailed?.(msg);
       focusSummary();
       return;
     }
@@ -252,7 +264,14 @@ export function EnquiryDetailsForm({
       </div>
 
       <label className="check">
-        <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(e) => {
+            rememberChoice = e.target.checked;
+            setRemember(e.target.checked);
+          }}
+        />
         Remember my details on this device
       </label>
     </form>

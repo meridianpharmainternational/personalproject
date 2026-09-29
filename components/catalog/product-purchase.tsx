@@ -14,11 +14,19 @@ const clampQty = (n: number) => (Number.isFinite(n) && n >= 1 ? Math.min(MAX_QTY
 const packs = (n: number) => `${n} pack${n === 1 ? "" : "s"}`;
 
 /**
+ * No strength is chosen and the product's listed lines all have a strength:
+ * the store skips a "to be advised" input for a product that is already
+ * listed, so adding would change nothing. `listed` is this product's lines.
+ */
+const vagueListed = (selected: string[], listed: EnquiryItem[]) =>
+  !selected.length && listed.length > 0 && !listed.some((c) => c.strength === null);
+
+/**
  * Product page purchase block: multi-select strength chips, a packs stepper
  * and the enquiry actions. Selecting several strengths adds one line per
  * strength; selecting none adds one line with strength "to be advised" (null).
  * When the product's only listed line is "to be advised", selected strengths
- * refine that line rather than sit beside it (see refine).
+ * refine that line rather than sit beside it (the store does it; see refine).
  * "Add" keeps the buyer on the page (toast + live region confirm it);
  * "Enquire now" adds and opens the enquiry drawer.
  */
@@ -77,56 +85,37 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
 
   /**
    * The product's only listed line is "to be advised" (null), e.g. added from a
-   * card, row or search, and the buyer has now picked strengths. Refine that
-   * line instead of listing the strengths beside it: it becomes the first
-   * strength, in the same place and with the same packs unless the stepper was
-   * changed, and the other strengths follow it.
+   * card, row or search, and the buyer has now picked strengths. The store
+   * refines that line instead of listing the strengths beside it: it becomes
+   * the first strength, in the same place and with the same packs unless the
+   * stepper was changed (an undefined qty keeps them), and the other strengths
+   * follow it. The store's confirmation names them all ("Cenforce 25 mg, 50 mg
+   * added") and its Undo (undoAdd) puts the "to be advised" line back.
    */
-  const refine = (vague: EnquiryItem, at: number, open: boolean) => {
-    const inputs = selected.map((s, n) => toAddInput(product, s, n === 0 && !qtyDirty ? vague.qty : qty));
-    enquiryList.removeKeys([vague.key]);
-    // Appends every strength, so the store's confirmation (announcement, the
-    // drawer's .is-new flash) names them all: "Cenforce 25 mg, 50 mg added".
+  const refine = (open: boolean) => {
+    const inputs = selected.map((s, n) => toAddInput(product, s, n === 0 && !qtyDirty ? undefined : qty));
     enquiryList.addMany(inputs, { open });
-    const first = enquiryList.getSnapshot().items.find((i) => i.key === itemKey(product.id, selected[0]));
-    if (first) {
-      // Move the first strength back to where the "to be advised" line was.
-      enquiryList.removeKeys([first.key]);
-      enquiryList.restore([first], at);
-    }
-    if (open) return;
-    setJustAdded(true);
-    const flash = enquiryList.getSnapshot().flash;
-    if (!flash) return;
-    // The store's toast would Undo by removing the new lines only, which would
-    // drop the product. Show the same confirmation with an Undo that also puts
-    // the "to be advised" line back.
-    enquiryList.dismissFlash();
-    const { name, keys, skipped: cut } = flash;
-    const n = enquiryList.getSnapshot().items.length;
-    const count = `${n} product${n === 1 ? "" : "s"}`;
-    toast.show(`${name} added · ${count}${cut ? ` · list full, ${cut} not added` : ""}`, [
-      { label: "View list", run: () => enquiryList.open() },
-      {
-        label: "Undo",
-        run: () => {
-          enquiryList.removeKeys(keys);
-          enquiryList.restore([vague], at);
-          announce(`${name} removed. ${vague.name}, strength to be advised, is back in your enquiry list.`);
-        },
-      },
-    ]);
-    announce(`${name} added. ${count} in your enquiry list.${cut ? ` List full, ${cut} not added.` : ""}`);
+    if (!open) setJustAdded(true);
   };
 
   const submit = (open: boolean) => {
     const current = enquiryList.getSnapshot().items;
     const listed = current.filter((c) => c.medicineId === product.id);
     if (selected.length && listed.length === 1 && listed[0].strength === null) {
-      refine(listed[0], current.indexOf(listed[0]), open);
+      refine(open);
       return;
     }
     const inputs = chosen.map((s) => toAddInput(product, s, qty));
+    // No strength chosen, but the product is already listed with real
+    // strengths: the store treats the "to be advised" input as already listed,
+    // so nothing is added. "Enquire now" just opens the list; "Add" lets the
+    // store confirm "… is already in your list" (toast + announcement) and
+    // does not show the button's added state.
+    if (vagueListed(selected, listed)) {
+      if (open) enquiryList.open();
+      else enquiryList.addMany(inputs);
+      return;
+    }
     const find = (s: string | null) => current.find((c) => c.key === itemKey(product.id, s));
     const fresh = inputs.filter((i) => !find(i.strength));
     // Only overwrite packs on existing lines when the buyer actually changed the stepper.
@@ -153,12 +142,18 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
       ? selected.map(keepTogether).join(", ")
       : "strength to be advised"
     : null;
-  const summary = `Adds ${chosen.length} line${chosen.length === 1 ? "" : "s"}: ${[
+  const adds = `Adds ${chosen.length} line${chosen.length === 1 ? "" : "s"}: ${[
     strengthText,
     keepTogether(`${packs(qty)}${chosen.length > 1 ? " each" : ""}`),
   ]
     .filter(Boolean)
     .join(" · ")}`;
+  // Adding would change nothing (see vagueListed), so say so instead.
+  const summary = vagueListed(selected, lines)
+    ? strengths.length
+      ? "Already in your list: choose a strength to add another line"
+      : "Already in your list"
+    : adds;
 
   const wa = whatsappLink(
     `Hello, I would like pricing and availability for:\n${formatEnquiryItems(

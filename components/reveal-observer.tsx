@@ -22,6 +22,9 @@ function collect(node: Node, selector: string): Element[] {
  */
 export function RevealObserver() {
   useEffect(() => {
+    // Tells the inline <head> script in app/layout.tsx that the observer is running, so it keeps the .js reveal gate.
+    (window as Window & { __mpReveal?: boolean }).__mpReveal = true;
+
     const io =
       "IntersectionObserver" in window
         ? new IntersectionObserver(

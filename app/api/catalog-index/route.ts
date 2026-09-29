@@ -25,7 +25,7 @@ const CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=86400";
 async function loadIndex() {
   try {
     const items = await getCatalogItems({ strict: true });
-    return items.map(({ id, name, molecule, form, strengths, category, availability, image }) => ({
+    return items.map(({ id, name, molecule, form, strengths, category, availability, image, ester }) => ({
       id,
       name,
       molecule,
@@ -34,6 +34,7 @@ async function loadIndex() {
       category,
       availability,
       image,
+      ester,
     }));
   } catch {
     return []; // getMedicines has already logged the cause

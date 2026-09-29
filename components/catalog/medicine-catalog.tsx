@@ -8,7 +8,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type CSSProperties,
   type ReactNode,
 } from "react";
@@ -20,7 +19,7 @@ import { enquiryList } from "@/lib/enquiry-list";
 import { customId } from "@/lib/enquiry-actions";
 import { announce } from "@/lib/ui-store";
 import { site } from "@/lib/site";
-import { didYouMean, relaxTokens } from "@/lib/search-text";
+import { didYouMean, relaxTokens, relevanceScore } from "@/lib/search-text";
 import { openPasteList } from "@/components/enquiry/enquiry-drawer";
 import { OpenEnquiryButton } from "@/components/enquiry/open-enquiry-button";
 import { ProductCard } from "@/components/catalog/product-card";
@@ -28,7 +27,7 @@ import { ProductRow } from "@/components/catalog/product-row";
 import { ProductTable } from "@/components/catalog/product-table";
 import { FilterGroups } from "@/components/catalog/filters";
 import { FilterSheet } from "@/components/catalog/filter-sheet";
-import { ActiveChips, ResultsToolbar, type ActiveChip } from "@/components/catalog/results-toolbar";
+import { ActiveChips, ResultsToolbar, useMediaQuery, type ActiveChip } from "@/components/catalog/results-toolbar";
 import { BackToTop } from "@/components/catalog/back-to-top";
 import { rememberCatalogueOrigin, restoreCatalogueScroll } from "@/components/catalog/back-to-results";
 import { CatalogContext, type CatalogHeadContext } from "@/components/catalog/catalog-context";
@@ -61,19 +60,6 @@ import {
   type SortKey,
   type ViewMode,
 } from "@/components/catalog/catalog-model";
-
-/** matchMedia as an external store; null on the server and during hydration. */
-function useMediaQuery(query: string): boolean | null {
-  const subscribe = useCallback(
-    (cb: () => void) => {
-      const m = window.matchMedia(query);
-      m.addEventListener("change", cb);
-      return () => m.removeEventListener("change", cb);
-    },
-    [query],
-  );
-  return useSyncExternalStore<boolean | null>(subscribe, () => window.matchMedia(query).matches, () => null);
-}
 
 /** Filters with one chip's value taken out. */
 function without(f: Filters, dim: Dim | "q", value: string): Filters {
@@ -196,7 +182,27 @@ export function MedicineCatalog({
     () => (relaxed ? items.filter((it) => matchesQuery(it, relaxed.tokens, universe)) : strictPool),
     [relaxed, items, strictPool, universe],
   );
-  const results = useMemo(() => sortItems(pool.filter((it) => passes(it, facets)), sort), [pool, facets, sort]);
+  // norm()'d name and molecule per item, for the relevance ranking below.
+  const normNames = useMemo(
+    () => new Map(items.map((it) => [it.id, { name: norm(it.name), mol: norm(it.molecule ?? "") }])),
+    [items],
+  );
+  // The query the relevance tiers compare names against: the corrected one when relaxed.
+  const wholeQuery = norm(relaxed?.query ?? q);
+  // "Recommended" during a search ranks by relevance first, as the header search
+  // does, so a product searched by its exact name comes first ("TEST-C" before
+  // the TEST-E family). The sort is stable, so sort_order stays the tie-break.
+  const results = useMemo(() => {
+    const sorted = sortItems(pool.filter((it) => passes(it, facets)), sort);
+    if (sort !== "recommended" || !searchTokens.length) return sorted;
+    const score = new Map(
+      sorted.map((it) => {
+        const n = normNames.get(it.id) ?? { name: norm(it.name), mol: norm(it.molecule ?? "") };
+        return [it.id, relevanceScore(n.name, n.mol, searchTokens, wholeQuery)];
+      }),
+    );
+    return sorted.sort((a, b) => (score.get(a.id) ?? 5) - (score.get(b.id) ?? 5));
+  }, [pool, facets, sort, searchTokens, normNames, wholeQuery]);
   const counts = useMemo(() => facetCounts(pool, facets), [pool, facets]);
   const total = results.length;
   const shown = Math.min(show, total);
@@ -455,6 +461,21 @@ export function MedicineCatalog({
     [total, tokens, universe],
   );
 
+  // Empty state: a product or molecule we list, searched with a dose we don't
+  // ("cenforce 250mg", "ivermectin 18mg"). The same search without its number
+  // tokens, brand names mapped to their molecule ("anavar" → "oxandrolone")
+  // and long misspelt words shortened as above, within the current filters:
+  // "Show “cenforce” in other strengths (7)". Null when the search has no number
+  // token, has nothing else, or still matches nothing.
+  const otherStrengths = useMemo(() => {
+    if (total > 0) return null;
+    const words = searchTokens.filter((t) => !/^\d/.test(t));
+    if (!words.length || words.length === searchTokens.length) return null;
+    const t = relaxTokens(words, universe.hay.values())?.tokens ?? words;
+    const n = items.filter((it) => matchesQuery(it, t, universe) && passes(it, facets)).length;
+    return n > 0 ? { q: t.join(" "), n } : null;
+  }, [total, searchTokens, items, universe, facets]);
+
   /* -------------------------------------------------------- requests */
 
   /**
@@ -569,6 +590,7 @@ export function MedicineCatalog({
           onChipsEmptied={focusResults}
           sort={sort}
           onSort={onSort}
+          searching={searchTokens.length > 0}
           view={effView}
           onView={onView}
           filterCount={activeFilterCount(filters)}
@@ -586,7 +608,7 @@ export function MedicineCatalog({
         >
           <aside id={sidebarId} aria-label="Filters" className="filters hidden self-start lg:block" hidden={sidebarHidden}>
             <div className="flex min-h-[52px] items-center justify-between gap-4">
-              <h2 ref={filtersTitleRef} tabIndex={-1} className="font-sans text-h4 tracking-normal outline-none">
+              <h2 ref={filtersTitleRef} tabIndex={-1} className="font-sans text-h4 tracking-normal outline-0">
                 Filters
               </h2>
               {facetCount > 0 && (
@@ -618,9 +640,6 @@ export function MedicineCatalog({
               <ActiveChips chips={chips} onClearAll={clearAll} onEmptied={focusResults} />
             </div>
 
-            {/* A relaxed search is never silent: say what was actually searched. */}
-            {relaxed && total > 0 && <p className="field-help mb-3">Showing results for “{relaxed.query}”</p>}
-
             {total === 0 ? (
               <div className="empty">
                 <h3>{emptyTitle}</h3>
@@ -635,14 +654,36 @@ export function MedicineCatalog({
                   </p>
                 )}
                 <p className="measure text-fg-muted">
-                  {searchOnly
-                    ? `Check the spelling or try the molecule name, or send “${qText}” to us as a product request.`
-                    : qText
-                      ? `Nothing matches “${qText}” with the current filters. Remove a filter, or send it to us as a product request.`
-                      : "Remove a filter to see more products, or send us a product request."}
+                  {otherStrengths
+                    ? searchOnly
+                      ? `We don’t list that strength. See the strengths we do list, or send “${qText}” to us as a product request.`
+                      : `We don’t list that strength with the current filters. See the strengths we do list, remove a filter, or send “${qText}” to us as a product request.`
+                    : searchOnly
+                      ? `Check the spelling or try the molecule name, or send “${qText}” to us as a product request.`
+                      : qText
+                        ? `Nothing matches “${qText}” with the current filters. Remove a filter, or send it to us as a product request.`
+                        : "Remove a filter to see more products, or send us a product request."}
                 </p>
-                {suggestions.length > 0 && (
+                {(otherStrengths || suggestions.length > 0) && (
                   <ul className="flex flex-wrap gap-2" aria-label="Suggestions">
+                    {otherStrengths && (
+                      <li>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => {
+                            setQuery(otherStrengths.q);
+                            requestAnimationFrame(focusResults);
+                          }}
+                        >
+                          Show “{otherStrengths.q}” in other strengths
+                          <span className="font-mono text-xs font-medium text-fg-muted">
+                            {otherStrengths.n}
+                            <span className="sr-only"> products</span>
+                          </span>
+                        </button>
+                      </li>
+                    )}
                     {suggestions.map(({ chip, n }) => (
                       <li key={chip.key}>
                         <button

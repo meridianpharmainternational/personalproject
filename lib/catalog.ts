@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import { parseStrengths } from "@/lib/format";
 import { medicineImageUrl } from "@/lib/storage";
+import { esterWord } from "@/lib/search-text";
 import type { Category, MedicineWithCategory } from "@/types/db";
 
 /**
@@ -113,6 +114,8 @@ export type CatalogItem = {
   id: string;
   name: string;
   molecule: string | null;
+  /** Ester or salt named by the description, e.g. "enanthate"; search text only, never displayed. */
+  ester: string | null;
   form: string | null;
   strengths: string[];
   pack: string | null;
@@ -129,6 +132,7 @@ export function toCatalogItem(m: MedicineWithCategory): CatalogItem {
     id: m.id,
     name: m.name,
     molecule: m.molecule,
+    ester: esterWord(m.description),
     form: m.form,
     strengths: parseStrengths(m.strengths),
     pack: m.pack,
