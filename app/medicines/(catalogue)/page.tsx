@@ -115,7 +115,7 @@ export default async function MedicinesPage({ searchParams }: Props) {
       categories={categories}
       initial={params}
       head={
-        <header className="page-head bg-mercator bg-columns pb-5 pt-4 lg:pb-7 lg:pt-6">
+        <header className="page-head">
           <div className="container-grid lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:items-end lg:gap-x-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,36rem)]">
             <div className="min-w-0">
               <CatalogueHeading />

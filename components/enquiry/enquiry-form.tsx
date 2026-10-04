@@ -16,19 +16,21 @@ import { Field } from "@/components/ui/field";
 const BUYER_KEY = "meridian.buyer.v1";
 
 /** Mirrors the max lengths in lib/validations/enquiry.ts (which also owns every error message). */
-const MAX = { name: 120, email: 254, phone: 40, country: 80, company: 120, product: 60000, message: 3000 } as const;
+const MAX = { name: 120, email: 254, phone: 40, country: 80, company: 120, message: 3000 } as const;
 
 /** Field order for the error summary (matches the visual order). */
-const ORDER: (keyof EnquiryInput)[] = ["name", "email", "company", "phone", "country", "product", "message"];
+const ORDER: (keyof EnquiryInput)[] = ["name", "email", "country", "company", "phone", "message"];
 
 const fmt = (n: number) => n.toLocaleString("en");
+/** A character counter appears only once a field is 80% full, so an empty form stays quiet. */
+const nearLimit = (len: number, max: number) => len >= max * 0.8;
 
 /**
- * The single-enquiry form (contact page). Multi-product enquiries go through
- * the enquiry-list drawer; this form sends one message, optionally with a
- * free-text product list. It never sends the enquiry list, so while that list
- * holds products the form (and its success panel) says so and offers the
- * drawer, rather than letting a buyer think the list went too.
+ * The contact form: contact details and one message (products, quantities and
+ * market go in the message). Multi-product enquiries go through the
+ * enquiry-list drawer. This form never sends that list, so while it holds
+ * products the form (and its success panel) says so and offers the drawer,
+ * rather than letting a buyer think the list went too.
  *
  * Accessibility: ids are useId()-prefixed (no clashes if two forms are
  * mounted), every control is labelled, errors are linked with aria-invalid +
@@ -37,15 +39,11 @@ const fmt = (n: number) => n.toLocaleString("en");
  */
 export function EnquiryForm({
   source = "Contact Form",
-  product,
   message,
-  compact = false,
 }: {
   source?: string;
-  product?: string;
   /** Optional pre-filled message. */
   message?: string;
-  compact?: boolean;
 }) {
   const uid = `ef${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const id = (k: string) => `${uid}-${k}`;
@@ -79,7 +77,8 @@ export function EnquiryForm({
       phone: "",
       country: "",
       company: "",
-      product: product ?? "",
+      // Not a field here: the schema's free-text product list stays empty.
+      product: "",
       message: message ?? "",
     },
   });
@@ -146,7 +145,7 @@ export function EnquiryForm({
 
   const startAnother = () => {
     const keep = getValues();
-    reset({ ...keep, product: product ?? "", message: "" });
+    reset({ ...keep, message: "" });
     setServerError(null);
     setSentTo(null);
   };
@@ -169,13 +168,19 @@ export function EnquiryForm({
           Enquiry sent
         </h3>
         <p id={id("done-body")} className="mt-2">
-          Thank you. Our export team replies by email{sentTo ? <> to <strong className="break-all">{sentTo}</strong></> : null},
-          usually within 1 business day.
+          Thank you. Our export team replies by email
+          {sentTo ? (
+            <>
+              {" "}
+              to <strong className="break-all">{sentTo}</strong>
+            </>
+          ) : null}
+          , usually within 1 business day.
         </p>
         {listed > 0 && (
           <p id={id("done-list")} className="mt-3 text-fg-muted">
-            Your enquiry list still has {listedText}. This message didn’t include them, so send the list as
-            its own enquiry.
+            Your enquiry list still has {listedText}. This message didn’t include {listed === 1 ? "it" : "them"}, so
+            send the list as its own enquiry.
           </p>
         )}
         <div className="mt-6 flex flex-wrap gap-3">
@@ -197,9 +202,7 @@ export function EnquiryForm({
   }
 
   /* --------------------------------------------------------------- form */
-  const messageErr = errors.message?.message;
-  const errText = (k: keyof EnquiryInput) => (k === "message" ? messageErr : errors[k]?.message);
-  const errList = ORDER.filter((k) => errors[k]).map((k) => ({ k, msg: errText(k) }));
+  const errList = ORDER.filter((k) => errors[k]).map((k) => ({ k, msg: errors[k]?.message }));
   const showSummary = Boolean(serverError) || (submitCount > 0 && errList.length > 0);
 
   const jumpTo = (k: keyof EnquiryInput) => (e: MouseEvent<HTMLAnchorElement>) => {
@@ -208,7 +211,6 @@ export function EnquiryForm({
   };
 
   const messageLen = watch("message")?.length ?? 0;
-  const productLen = watch("product")?.length ?? 0;
 
   return (
     <form onSubmit={onSubmit} noValidate aria-busy={isSubmitting || undefined} className="space-y-5">
@@ -223,7 +225,11 @@ export function EnquiryForm({
             <ul className="mt-1 list-disc pl-5">
               {errList.map((e) => (
                 <li key={e.k}>
-                  <a href={`#${id(e.k)}`} onClick={jumpTo(e.k)} className="inline-flex min-h-tap items-center underline">
+                  <a
+                    href={`#${id(e.k)}`}
+                    onClick={jumpTo(e.k)}
+                    className="inline-flex min-h-tap items-center underline"
+                  >
                     {e.msg}
                   </a>
                 </li>
@@ -234,33 +240,17 @@ export function EnquiryForm({
       )}
 
       {listed > 0 && (
-        // Secondary, not green: the enquiry bar (phones, tablets) and the aside's
-        // "Open your enquiry list" (desktop) already carry the one green list action.
-        <div className="rounded border border-rule bg-paper p-4">
-          <p className="font-semibold text-fg-strong">You have {listedText} in your enquiry list</p>
-          <p className="mt-1 text-fg-muted">
-            This form doesn’t send them. Review your list and send it as one enquiry.
-          </p>
-          <button type="button" className="btn btn-secondary btn-sm mt-3" onClick={() => enquiryList.open()}>
-            Review &amp; send your list
-            <ArrowRight aria-hidden className="icon-trail" />
+        <p className="text-fg-muted">
+          Your enquiry list has {listedText}. This form doesn’t send {listed === 1 ? "it" : "them"}.{" "}
+          <button type="button" className="link-inline" onClick={() => enquiryList.open()}>
+            Review your list
           </button>
-        </div>
+        </p>
       )}
-
-      {product ? (
-        <div className="rounded border border-rule bg-paper px-4 py-3">
-          <span className="text-fg-muted">Enquiring about</span>{" "}
-          <strong className="text-fg-strong">{product}</strong>
-          <input type="hidden" {...register("product")} />
-        </div>
-      ) : null}
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field label="Your name" htmlFor={id("name")} error={errors.name?.message}>
-          {(a) => (
-            <input {...a} className="input" autoComplete="name" maxLength={MAX.name} {...register("name")} />
-          )}
+          {(a) => <input {...a} className="input" autoComplete="name" maxLength={MAX.name} {...register("name")} />}
         </Field>
         <Field label="Work email" htmlFor={id("email")} error={errors.email?.message}>
           {(a) => (
@@ -272,24 +262,6 @@ export function EnquiryForm({
               autoComplete="email"
               maxLength={MAX.email}
               {...register("email")}
-            />
-          )}
-        </Field>
-        <Field label="Company" optional htmlFor={id("company")} error={errors.company?.message}>
-          {(a) => (
-            <input {...a} className="input" autoComplete="organization" maxLength={MAX.company} {...register("company")} />
-          )}
-        </Field>
-        <Field label="Phone or WhatsApp" optional htmlFor={id("phone")} error={errors.phone?.message}>
-          {(a) => (
-            <input
-              {...a}
-              type="tel"
-              inputMode="tel"
-              className="input"
-              autoComplete="tel"
-              maxLength={MAX.phone}
-              {...register("phone")}
             />
           )}
         </Field>
@@ -318,55 +290,49 @@ export function EnquiryForm({
             </>
           )}
         </Field>
-      </div>
-
-      {!product && (
-        <Field
-          label="Products you need"
-          optional
-          htmlFor={id("product")}
-          hint={
-            <>
-              One per line: brand or molecule, strength and quantity if you know them.{" "}
-              <span className="whitespace-nowrap font-mono text-xs">
-                {fmt(productLen)} / {fmt(MAX.product)}
-              </span>
-            </>
-          }
-          error={errors.product?.message}
-        >
+        <Field label="Company" optional htmlFor={id("company")} error={errors.company?.message}>
           {(a) => (
-            <textarea
+            <input
               {...a}
-              className="textarea"
-              rows={compact ? 2 : 3}
-              maxLength={MAX.product}
-              placeholder={"e.g. Sildenafil Citrate 100 mg, 50 packs"}
-              {...register("product")}
+              className="input"
+              autoComplete="organization"
+              maxLength={MAX.company}
+              {...register("company")}
             />
           )}
         </Field>
-      )}
+        <Field label="Phone or WhatsApp" optional htmlFor={id("phone")} error={errors.phone?.message}>
+          {(a) => (
+            <input
+              {...a}
+              type="tel"
+              inputMode="tel"
+              className="input"
+              autoComplete="tel"
+              maxLength={MAX.phone}
+              {...register("phone")}
+            />
+          )}
+        </Field>
+      </div>
 
       <Field
         label="Message"
-        optional={Boolean(product)}
         htmlFor={id("message")}
         hint={
           <>
-            {product
-              ? "Quantities, destination market, documentation needs."
-              : "Quantities, destination market, documentation needs. Needed if you haven’t listed products."}{" "}
-            <span className="whitespace-nowrap font-mono text-xs">
-              {fmt(messageLen)} / {fmt(MAX.message)}
-            </span>
+            The products, strengths and quantities you need, and any documents.
+            {nearLimit(messageLen, MAX.message) && (
+              <span className="whitespace-nowrap font-mono text-xs">
+                {" "}
+                {fmt(messageLen)} / {fmt(MAX.message)}
+              </span>
+            )}
           </>
         }
-        error={messageErr}
+        error={errors.message?.message}
       >
-        {(a) => (
-          <textarea {...a} className="textarea" rows={compact ? 3 : 5} maxLength={MAX.message} {...register("message")} />
-        )}
+        {(a) => <textarea {...a} className="textarea" rows={5} maxLength={MAX.message} {...register("message")} />}
       </Field>
 
       {/* Honeypot: people never see or reach it; form-filling bots fill it in. */}

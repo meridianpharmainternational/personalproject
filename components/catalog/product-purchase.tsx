@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { ArrowRight, Check, ListPlus, MessageCircle, Minus, Plus } from "lucide-react";
+import { Check, MessageCircle, Minus, Plus } from "lucide-react";
 import { enquiryList, itemKey, useEnquiryList, type EnquiryItem } from "@/lib/enquiry-list";
 import { toAddInput } from "@/lib/enquiry-actions";
 import { announce, toast } from "@/lib/ui-store";
@@ -27,14 +27,12 @@ const vagueListed = (selected: string[], listed: EnquiryItem[]) =>
  * strength; selecting none adds one line with strength "to be advised" (null).
  * When the product's only listed line is "to be advised", selected strengths
  * refine that line rather than sit beside it (the store does it; see refine).
- * "Add" keeps the buyer on the page (toast + live region confirm it);
- * "Enquire now" adds and opens the enquiry drawer.
+ * "Add to enquiry list" keeps the buyer on the page (toast + live region
+ * confirm it; the toast and the in-list line offer "View list").
  */
 export function ProductPurchase({ product }: { product: CatalogItem }) {
   const uid = useId();
-  const hintId = `${uid}-strength-hint`;
   const qtyId = `${uid}-qty`;
-  const qtyHelpId = `${uid}-qty-help`;
   const summaryId = `${uid}-summary`;
 
   const strengths = product.strengths;
@@ -58,7 +56,9 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
 
   // Keep the chosen strengths in the product's own order.
   const toggleStrength = (s: string) =>
-    setSelected((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : strengths.filter((x) => x === s || cur.includes(x))));
+    setSelected((cur) =>
+      cur.includes(s) ? cur.filter((x) => x !== s) : strengths.filter((x) => x === s || cur.includes(x)),
+    );
 
   const setQty = (n: number) => {
     setQtyText(String(clampQty(n)));
@@ -92,28 +92,26 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
    * follow it. The store's confirmation names them all ("Cenforce 25 mg, 50 mg
    * added") and its Undo (undoAdd) puts the "to be advised" line back.
    */
-  const refine = (open: boolean) => {
+  const refine = () => {
     const inputs = selected.map((s, n) => toAddInput(product, s, n === 0 && !qtyDirty ? undefined : qty));
-    enquiryList.addMany(inputs, { open });
-    if (!open) setJustAdded(true);
+    enquiryList.addMany(inputs);
+    setJustAdded(true);
   };
 
-  const submit = (open: boolean) => {
+  const submit = () => {
     const current = enquiryList.getSnapshot().items;
     const listed = current.filter((c) => c.medicineId === product.id);
     if (selected.length && listed.length === 1 && listed[0].strength === null) {
-      refine(open);
+      refine();
       return;
     }
     const inputs = chosen.map((s) => toAddInput(product, s, qty));
     // No strength chosen, but the product is already listed with real
     // strengths: the store treats the "to be advised" input as already listed,
-    // so nothing is added. "Enquire now" just opens the list; "Add" lets the
-    // store confirm "… is already in your list" (toast + announcement) and
-    // does not show the button's added state.
+    // so nothing is added: the store confirms "… is already in your list"
+    // (toast + announcement) and the button does not show its added state.
     if (vagueListed(selected, listed)) {
-      if (open) enquiryList.open();
-      else enquiryList.addMany(inputs);
+      enquiryList.addMany(inputs);
       return;
     }
     const find = (s: string | null) => current.find((c) => c.key === itemKey(product.id, s));
@@ -130,14 +128,13 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
 
     if (fresh.length || !stale.length) {
       // Adds the new lines (the store skips duplicates) and fires the toast/announcement.
-      enquiryList.addMany(inputs, { open });
+      enquiryList.addMany(inputs);
     } else {
       const label = stale.length === 1 ? [product.name, stale[0].strength].filter(Boolean).join(" ") : product.name;
-      if (open) enquiryList.open();
-      else toast.show(`${label} updated · ${packs(qty)}`, [{ label: "View list", run: () => enquiryList.open() }]);
+      toast.show(`${label} updated · ${packs(qty)}`, [{ label: "View list", run: () => enquiryList.open() }]);
       announce(`${label} updated to ${packs(qty)} in your enquiry list.`);
     }
-    if (!open && (fresh.length || stale.length)) setJustAdded(true);
+    if (fresh.length || stale.length) setJustAdded(true);
   };
 
   // Split the choice by what the list already holds, so the summary names only
@@ -183,16 +180,13 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        submit(false);
+        submit();
       }}
     >
       {strengths.length > 0 && (
-        <fieldset aria-describedby={hintId}>
+        <fieldset>
           <legend className="label">Strength</legend>
-          <p id={hintId} className="field-help mt-0">
-            {"Select one or more, or leave blank for “to be advised”."}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             {strengths.map((s) => {
               const on = selected.includes(s);
               return (
@@ -227,7 +221,6 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
             inputMode="numeric"
             pattern="[0-9]*"
             autoComplete="off"
-            aria-describedby={qtyHelpId}
             value={qtyText}
             onChange={(e) => {
               setQtyText(e.target.value.replace(/\D/g, "").slice(0, 6));
@@ -240,31 +233,20 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
             <Plus aria-hidden size={18} strokeWidth={1.75} />
           </button>
         </div>
-        <p id={qtyHelpId} className="field-help">
-          {chosen.length > 1 ? "Packs per strength. " : ""}You can change this later in your enquiry list.
-        </p>
       </div>
 
-      <p id={summaryId} className="mt-6 text-sm text-fg-muted">
+      {/* What a press will add, for screen readers (sighted buyers see the selected chips). */}
+      <p id={summaryId} className="sr-only">
         {summary}
       </p>
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <button
           type="submit"
           className={`btn btn-enquire btn-lg${justAdded ? " is-just-added" : ""}`}
           aria-describedby={summaryId}
         >
-          {justAdded ? <Check aria-hidden strokeWidth={1.75} /> : <ListPlus aria-hidden strokeWidth={1.75} />}
+          {justAdded ? <Check aria-hidden strokeWidth={1.75} /> : <Plus aria-hidden strokeWidth={1.75} />}
           <span>Add to enquiry list</span>
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary btn-lg"
-          aria-describedby={summaryId}
-          onClick={() => submit(true)}
-        >
-          Enquire now
-          <ArrowRight aria-hidden strokeWidth={1.75} className="icon-trail" />
         </button>
         {wa && (
           <a className="btn btn-ghost btn-lg" href={wa} target="_blank" rel="noopener noreferrer">
@@ -276,20 +258,19 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
       </div>
 
       {lines.length > 0 && (
-        <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-sm border border-leaf-700 bg-leaf-50 py-1 pl-4 pr-1">
-          <p className="flex items-center gap-2 font-semibold text-leaf-800">
-            <Check aria-hidden size={18} strokeWidth={2} />
-            In your enquiry list
-          </p>
-          <p className="min-w-0 flex-1 font-mono text-sm text-fg">
+        // One quiet line, not a box: what of this product is already listed.
+        <p className="mt-4 flex flex-wrap items-center gap-x-2 text-fg-muted">
+          <Check aria-hidden size={18} strokeWidth={2} className="flex-none text-leaf-700" />
+          <span>
+            In your list:{" "}
             {lines
-              .map((l) => `${keepTogether(l.strength ?? "To be advised")} · ${keepTogether(packs(l.qty))}`)
+              .map((l) => `${keepTogether(l.strength ?? "to be advised")} · ${keepTogether(packs(l.qty))}`)
               .join("; ")}
-          </p>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => enquiryList.open()}>
+          </span>
+          <button type="button" className="link-inline" onClick={() => enquiryList.open()}>
             View list
           </button>
-        </div>
+        </p>
       )}
     </form>
   );

@@ -134,7 +134,8 @@ export function toCatalogItem(m: MedicineWithCategory): CatalogItem {
     molecule: m.molecule,
     ester: esterWord(m.description),
     form: m.form,
-    strengths: parseStrengths(m.strengths),
+    // "On request" is a note, not a strength: such products offer no strength choice ("to be advised").
+    strengths: parseStrengths(m.strengths).filter((s) => !/^on request$/i.test(s)),
     pack: m.pack,
     moq: m.moq,
     lead_time: m.lead_time,

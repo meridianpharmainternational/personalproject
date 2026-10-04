@@ -25,7 +25,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
     });
 
   return (
-    <section className="section bg-mercator" aria-labelledby="error-title">
+    <section className="section" aria-labelledby="error-title">
       <div className="container-grid">
         <p className="kicker">Something went wrong</p>
         <h1 id="error-title" className="mt-4 max-w-4xl">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { enquiryList, MAX_ITEMS, useEnquiryList } from "@/lib/enquiry-list";
 import { announce, toast, useToast } from "@/lib/ui-store";
 
@@ -9,7 +10,7 @@ const FOOT_GAP = 12;
 
 /**
  * While the enquiry drawer is open below 1024px, the toast's default position
- * lands on the drawer's sticky footer ("Continue" / "Keep browsing"). Returns
+ * lands on the drawer's sticky footer ("Continue", "Send enquiry"). Returns
  * the `bottom` offset (px) that lifts it clear of the footer, or null to keep
  * the stylesheet position. Tracks footer height changes (step 2 is taller) and
  * viewport changes across the breakpoint.
@@ -143,6 +144,16 @@ export function EnquiryToast() {
     }
     enquiryList.dismissFlash();
   }, [flash]);
+
+  // A new page clears a toast left from the last one ("Cenforce added · Undo"
+  // would otherwise sit over the next page for the rest of its 5 seconds).
+  const pathname = usePathname();
+  const lastPath = useRef(pathname);
+  useEffect(() => {
+    if (pathname === lastPath.current) return;
+    lastPath.current = pathname;
+    toast.dismiss();
+  }, [pathname]);
 
   // Opening the drawer clears a toast that was already up; it would otherwise
   // sit over the drawer's footer. Toasts raised inside the drawer (remove ·

@@ -19,7 +19,7 @@ export default async function NotFound() {
 
   return (
     <>
-      <section className="section bg-mercator" aria-labelledby="nf-title">
+      <section className="section" aria-labelledby="nf-title">
         <div className="container-grid">
           <p className="kicker">Error 404</p>
           <h1 id="nf-title" className="mt-4 max-w-4xl">
@@ -44,28 +44,15 @@ export default async function NotFound() {
       {categories.length > 0 && (
         <section className="section surface-paper" aria-labelledby="nf-categories">
           <div className="container-grid">
-            <header className="section-head">
-              <p className="section-index">
-                Categories
-                {total > 0 && <span className="total">{plural(total, "product", "products")}</span>}
-              </p>
-              <div className="section-title">
-                <h2 id="nf-categories">Browse by category</h2>
-              </div>
+            <header className="sec-head">
+              <h2 id="nf-categories">Browse by category</h2>
             </header>
-
-            <ul className="az-index">
+            <ul className="cat-cards">
               {categories.map((c) => (
-                <li key={c.slug} className="break-inside-avoid border-b border-rule">
-                  <Link className="az-link" href={`/medicines?category=${encodeURIComponent(c.slug)}`}>
-                    <span className="min-w-0">{c.name}</span>
-                    {c.count > 0 && (
-                      <span className="count">
-                        <span className="sr-only">, </span>
-                        {c.count}
-                        <span className="sr-only"> {c.count === 1 ? "product" : "products"}</span>
-                      </span>
-                    )}
+                <li key={c.slug}>
+                  <Link href={`/medicines?category=${encodeURIComponent(c.slug)}`} className="cat-card">
+                    <span className="cat-card-name">{c.name}</span>
+                    {c.count > 0 && <span className="cat-card-meta">{plural(c.count, "product", "products")}</span>}
                   </Link>
                 </li>
               ))}

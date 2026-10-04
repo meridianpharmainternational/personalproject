@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import localFont from "next/font/local";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
-import { CategoryBar, CategoryBarView, type NavData } from "@/components/category-bar";
+import type { NavData } from "@/components/category-bar";
 import { SiteFooter } from "@/components/site-footer";
 import { EnquiryDrawer } from "@/components/enquiry/enquiry-drawer";
 import { EnquiryBar } from "@/components/enquiry/enquiry-bar";
@@ -84,13 +84,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           Skip to content
         </a>
         <SiteHeader nav={nav} popular={summary.popularMolecules} />
-        <Suspense fallback={<CategoryBarView nav={nav} />}>
-          <CategoryBar nav={nav} />
-        </Suspense>
         <main id="main" className="flex-1">
           {children}
         </main>
-        <SiteFooter nav={nav} />
+        <SiteFooter />
         <EnquiryDrawer />
         <EnquiryBar />
         <EnquiryToast />

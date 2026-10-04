@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { enquiryList, useEnquiryList } from "@/lib/enquiry-list";
 
-/** Mobile/tablet (<1024px) bottom bar: "3 products in your list · Review & send". */
+/** Phone (<640px) bottom bar: "3 products in your list · View list". Hidden while a toast shows (globals.css). */
 export function EnquiryBar() {
   const { items, open } = useEnquiryList();
   const pathname = usePathname() ?? "";
@@ -26,7 +26,7 @@ export function EnquiryBar() {
         onClick={() => enquiryList.open()}
         tabIndex={visible ? 0 : -1}
       >
-        Review &amp; send <ArrowRight aria-hidden className="icon-trail" />
+        View list <ArrowRight aria-hidden className="icon-trail" />
       </button>
     </div>
   );

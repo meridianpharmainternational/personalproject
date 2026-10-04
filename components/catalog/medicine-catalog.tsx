@@ -1,19 +1,8 @@
 "use client";
 
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight } from "lucide-react";
 import type { CatalogItem } from "@/lib/catalog";
 import { enquiryList } from "@/lib/enquiry-list";
 import { customId } from "@/lib/enquiry-actions";
@@ -24,19 +13,13 @@ import { openPasteList } from "@/components/enquiry/enquiry-drawer";
 import { OpenEnquiryButton } from "@/components/enquiry/open-enquiry-button";
 import { ProductCard } from "@/components/catalog/product-card";
 import { ProductRow } from "@/components/catalog/product-row";
-import { ProductTable } from "@/components/catalog/product-table";
-import { FilterGroups } from "@/components/catalog/filters";
-import { FilterSheet } from "@/components/catalog/filter-sheet";
-import { ActiveChips, ResultsToolbar, useMediaQuery, type ActiveChip } from "@/components/catalog/results-toolbar";
-import { BackToTop } from "@/components/catalog/back-to-top";
+import { CatalogueFilters } from "@/components/catalog/catalogue-filters";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { rememberCatalogueOrigin, restoreCatalogueScroll } from "@/components/catalog/back-to-results";
 import { CatalogContext, type CatalogHeadContext } from "@/components/catalog/catalog-context";
-import { CATALOGUE_TITLE_ID } from "@/components/catalog/catalogue-head";
 import {
-  AVAIL_LABEL,
   EMPTY_FILTERS,
   PAGE_SIZE,
-  VIEW_STORAGE_KEY,
   activeFilterCount,
   buildSearch,
   buildUniverse,
@@ -48,34 +31,14 @@ import {
   parseParams,
   passes,
   sortItems,
-  toggleValue,
   tokenize,
-  type Avail,
   type CatalogParams,
   type CatalogState,
   type CategoryLite,
-  type Dim,
-  type FacetKey,
   type Filters,
   type SortKey,
   type ViewMode,
 } from "@/components/catalog/catalog-model";
-
-/** Filters with one chip's value taken out. */
-function without(f: Filters, dim: Dim | "q", value: string): Filters {
-  switch (dim) {
-    case "q":
-      return { ...f, q: "" };
-    case "category":
-      return { ...f, category: "" };
-    case "avail":
-      return { ...f, avail: f.avail.filter((x) => x !== value) };
-    default:
-      return { ...f, [dim]: f[dim].filter((x) => x !== value) };
-  }
-}
-
-type Chip = ActiveChip & { dim: Dim | "q"; value: string; /** "search “sild”" / "“Tablets”" */ name: string };
 
 /**
  * The public catalogue (/medicines). Owns every piece of catalogue state —
@@ -122,34 +85,13 @@ export function MedicineCatalog({
   const [filters, setFilters] = useState<Filters>(init.filters);
   const [sort, setSort] = useState<SortKey>(init.sort);
   const [view, setView] = useState<ViewMode | null>(init.view);
-  const [prefView, setPrefView] = useState<ViewMode | null>(null);
   const [show, setShow] = useState(init.show);
   const [newFrom, setNewFrom] = useState<number | null>(null);
-  const [sidebarHidden, setSidebarHidden] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
-  const [bandH, setBandH] = useState<number | null>(null);
 
-  const sidebarId = useId();
   const resultsHeadingId = useId();
   const resultsRef = useRef<HTMLDivElement>(null);
-  const filtersTitleRef = useRef<HTMLHeadingElement>(null);
   const mobile = useMediaQuery("(max-width: 767.98px)");
-
-  // Opening the enquiry list (e.g. the toast's "View list" while the filter
-  // sheet is up) closes the sheet first. Both use .drawer/.backdrop at the same
-  // z-index, so the sheet (portalled last into <body>) would paint over the
-  // drawer while useDialog made it inert, and taps on its visible buttons would
-  // land on the hidden drawer underneath. The dialog stack hands inert/focus to
-  // the drawer as the sheet closes beneath it. Subscribing directly (not via
-  // useEnquiryList) keeps list changes from re-rendering the whole catalogue.
-  useEffect(
-    () =>
-      enquiryList.subscribe(() => {
-        if (enquiryList.getSnapshot().open) setSheetOpen(false);
-      }),
-    [],
-  );
 
   /* -------------------------------------------------------- derived */
 
@@ -169,10 +111,7 @@ export function MedicineCatalog({
   // A search that matches nothing as typed is retried with long misspelt words
   // shortened ("ivermectine" → "ivermectin"). The pool, facet counts and result
   // count all use the same tokens, and the correction is always shown.
-  const strictPool = useMemo(
-    () => items.filter((it) => matchesQuery(it, tokens, universe)),
-    [items, tokens, universe],
-  );
+  const strictPool = useMemo(() => items.filter((it) => matchesQuery(it, tokens, universe)), [items, tokens, universe]);
   const relaxed = useMemo(
     () => (tokens.length && !strictPool.length ? relaxTokens(tokens, universe.hay.values()) : null),
     [tokens, strictPool, universe],
@@ -193,7 +132,10 @@ export function MedicineCatalog({
   // does, so a product searched by its exact name comes first ("TEST-C" before
   // the TEST-E family). The sort is stable, so sort_order stays the tie-break.
   const results = useMemo(() => {
-    const sorted = sortItems(pool.filter((it) => passes(it, facets)), sort);
+    const sorted = sortItems(
+      pool.filter((it) => passes(it, facets)),
+      sort,
+    );
     if (sort !== "recommended" || !searchTokens.length) return sorted;
     const score = new Map(
       sorted.map((it) => {
@@ -207,8 +149,6 @@ export function MedicineCatalog({
   const total = results.length;
   const shown = Math.min(show, total);
   const visible = useMemo(() => results.slice(0, shown), [results, shown]);
-
-  const effView: ViewMode | null = view ?? prefView ?? (mobile === null ? null : mobile ? "list" : "grid");
 
   /* ------------------------------------------------------- updates */
 
@@ -231,50 +171,27 @@ export function MedicineCatalog({
     [flash],
   );
 
-  const toggle = useCallback(
-    (key: FacetKey, value: string) =>
-      update((f) =>
-        key === "avail"
-          ? { ...f, avail: toggleValue<Avail>(f.avail, value as Avail) }
-          : { ...f, [key]: toggleValue(f[key], value) },
-      ),
-    [update],
-  );
   const setQuery = useCallback((next: string) => update((f) => ({ ...f, q: next }), true), [update]);
-  const setCategory = useCallback((slug: string) => update((f) => ({ ...f, category: slug })), [update]);
-  const clearAll = useCallback(() => update(() => EMPTY_FILTERS), [update]);
-  /** Sidebar "Clear all": the sidebar's own groups (category lives in the category bar). */
-  const clearFacets = useCallback(
-    () => update((f) => ({ ...EMPTY_FILTERS, q: f.q, category: f.category })),
-    [update],
+  // A new category drops any molecule or form it has no products of, so the dropdowns never lead to an empty page.
+  const setCategory = useCallback(
+    (slug: string) =>
+      update((f) => {
+        if (!slug) return { ...f, category: "" };
+        const inCategory = items.filter((it) => it.category?.slug === slug);
+        const has = (key: "molecule" | "form") => (v: string) => inCategory.some((it) => it[key] === v);
+        return { ...f, category: slug, molecule: f.molecule.filter(has("molecule")), form: f.form.filter(has("form")) };
+      }),
+    [update, items],
   );
-  /** Sheet "Clear": everything in the sheet, incl. category; keeps the search text. */
-  const clearSheet = useCallback(() => update((f) => ({ ...EMPTY_FILTERS, q: f.q })), [update]);
+  const clearAll = useCallback(() => update(() => EMPTY_FILTERS), [update]);
+  const setForm = useCallback((v: string) => update((f) => ({ ...f, form: v ? [v] : [] })), [update]);
+  /** "Clear filters": every dropdown filter; the search text stays. */
+  const clearFilters = useCallback(() => update((f) => ({ ...EMPTY_FILTERS, q: f.q })), [update]);
 
   const onSort = (s: SortKey) => {
     setSort(s);
     flash();
   };
-
-  const onView = (v: ViewMode) => {
-    setView(v);
-    setPrefView(v);
-    try {
-      window.localStorage.setItem(VIEW_STORAGE_KEY, v);
-    } catch {
-      /* storage unavailable */
-    }
-  };
-
-  // Saved view preference (the URL's ?view= wins; phones default to the list).
-  useEffect(() => {
-    try {
-      const v = window.localStorage.getItem(VIEW_STORAGE_KEY);
-      if (v === "grid" || v === "list") setPrefView(v);
-    } catch {
-      /* storage unavailable */
-    }
-  }, []);
 
   // After "Back to results": restore the buyer's scroll position and focus the product they opened.
   useEffect(() => restoreCatalogueScroll(), []);
@@ -373,8 +290,7 @@ export function MedicineCatalog({
   // The search is the only active chip (no category or facet filters).
   const searchOnly = qText !== "" && activeFilterCount(filters) === 0;
   const emptyTitle = searchOnly ? `No products match “${qText}”.` : "No products match these filters.";
-  const countText =
-    total === 0 ? "No products" : total === 1 ? "Showing 1 of 1" : `Showing 1–${shown} of ${total}`;
+  const countText = total === 0 ? "No products" : total === 1 ? "Showing 1 of 1" : `Showing 1–${shown} of ${total}`;
   const spoken =
     total === 0
       ? emptyTitle
@@ -413,47 +329,6 @@ export function MedicineCatalog({
     });
     return () => cancelAnimationFrame(raf);
   }, [show]);
-
-  /* ---------------------------------------------------------- chips */
-
-  const chips = useMemo<Chip[]>(() => {
-    const out: Chip[] = [];
-    const make = (dim: Dim | "q", value: string, label: string, name = `“${label}”`, ariaLabel?: string): Chip => ({
-      key: `${dim}:${value}`,
-      dim,
-      value,
-      label,
-      name,
-      ariaLabel,
-      remove: () => update((f) => without(f, dim, value), dim === "q"),
-    });
-    const text = filters.q.trim();
-    if (text) out.push(make("q", text, `“${text}”`, `search “${text}”`, `Remove search “${text}”`));
-    if (filters.category) {
-      const name = categories.find((c) => c.slug === filters.category)?.name ?? filters.category;
-      out.push(make("category", filters.category, name));
-    }
-    filters.molecule.forEach((v) => out.push(make("molecule", v, v)));
-    filters.form.forEach((v) => out.push(make("form", v, v)));
-    filters.avail.forEach((v) => out.push(make("avail", v, AVAIL_LABEL[v])));
-    filters.strength.forEach((v) => out.push(make("strength", v, v)));
-    return out;
-  }, [filters, categories, update]);
-
-  // Empty state: one-tap removals that would bring results back, best first.
-  const suggestions = useMemo(() => {
-    if (total > 0 || !items.length) return [];
-    return chips
-      .map((c) => {
-        const f2 = without(facets, c.dim, c.value);
-        const t2 = c.dim === "q" ? [] : searchTokens;
-        const n = items.filter((it) => matchesQuery(it, t2, universe) && passes(it, f2)).length;
-        return { chip: c, n };
-      })
-      .filter((s) => s.n > 0)
-      .sort((a, b) => b.n - a.n)
-      .slice(0, 4);
-  }, [total, items, chips, facets, searchTokens, universe]);
 
   // Empty state: "Did you mean Ivermectin (13)?" when the search misspells a molecule.
   const dym = useMemo(
@@ -571,260 +446,135 @@ export function MedicineCatalog({
   const isNew = (i: number) => newFrom !== null && i >= newFrom;
   const newIndex = (i: number) => (newFrom !== null ? i - newFrom : 0);
   const listDim = updating ? " opacity-40" : "";
-  const showRows = effView === null || (effView === "list" && mobile !== false);
-  const showTable = effView === "list" && mobile !== true;
-  const showGrid = effView !== "list";
-  const facetCount = molecule.length + form.length + avail.length + strength.length;
+  // Phones get compact rows, wider screens cards. Until the width is known
+  // (first paint) both render and CSS shows the right one.
+  const showRows = mobile !== false;
+  const showGrid = mobile !== true;
   const remaining = total - shown;
-  const bodyStyle = bandH ? ({ "--toolbar-h": `${bandH}px` } as CSSProperties) : undefined;
 
   return (
     <CatalogContext.Provider value={headCtx}>
-      <div>
-        {head}
-
-        <ResultsToolbar
-          countText={countText}
-          chips={chips}
-          onClearAll={clearAll}
-          onChipsEmptied={focusResults}
-          sort={sort}
-          onSort={onSort}
-          searching={searchTokens.length > 0}
-          view={effView}
-          onView={onView}
-          filterCount={activeFilterCount(filters)}
-          onOpenFilters={() => setSheetOpen(true)}
-          sheetOpen={sheetOpen}
-          sidebarId={sidebarId}
-          sidebarHidden={sidebarHidden}
-          onToggleSidebar={() => setSidebarHidden((v) => !v)}
-          onHeight={setBandH}
-        />
-
-        <div
-          className={`container-grid pb-8 pt-4 md:py-8${sidebarHidden ? "" : " lg:grid lg:grid-cols-[17.5rem_minmax(0,1fr)] lg:gap-8"}`}
-          style={bodyStyle}
-        >
-          <aside id={sidebarId} aria-label="Filters" className="filters hidden self-start lg:block" hidden={sidebarHidden}>
-            <div className="flex min-h-[52px] items-center justify-between gap-4">
-              <h2 ref={filtersTitleRef} tabIndex={-1} className="font-sans text-h4 tracking-normal outline-0">
-                Filters
-              </h2>
-              {facetCount > 0 && (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm -mr-2.5"
-                  onClick={() => {
-                    clearFacets();
-                    // The button unmounts once nothing is left to clear; keep focus in the sidebar.
-                    requestAnimationFrame(() => filtersTitleRef.current?.focus({ preventScroll: true }));
-                  }}
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-            <FilterGroups variant="sidebar" filters={filters} universe={universe} counts={counts} onToggle={toggle} />
-            <RequestPanel q={filters.q.trim()} onRequest={requestProduct} className="mt-6" />
-          </aside>
-
-          <section aria-labelledby={resultsHeadingId} className="min-w-0">
-            <h2 id={resultsHeadingId} tabIndex={-1} className="sr-only">
-              Results: {countText}
-            </h2>
-
-            {/* Below lg this is the only visible results count (the toolbar's is lg-only). */}
-            <div className="mb-3 grid gap-2 lg:hidden">
-              <p className="results-count">{countText}</p>
-              <ActiveChips chips={chips} onClearAll={clearAll} onEmptied={focusResults} />
-            </div>
-
-            {total === 0 ? (
-              <div className="empty">
-                <h3>{emptyTitle}</h3>
-                {dym && (
-                  <p className="measure">
-                    Did you mean{" "}
-                    <Link href={`/medicines?molecule=${encodeURIComponent(dym.value)}`} className="link-arrow underline">
-                      {dym.value}
-                    </Link>{" "}
-                    (<span className="font-mono text-sm">{dym.total}</span>
-                    <span className="sr-only"> products</span>)?
-                  </p>
-                )}
-                <p className="measure text-fg-muted">
-                  {otherStrengths
-                    ? searchOnly
-                      ? `We don’t list that strength. See the strengths we do list, or send “${qText}” to us as a product request.`
-                      : `We don’t list that strength with the current filters. See the strengths we do list, remove a filter, or send “${qText}” to us as a product request.`
-                    : searchOnly
-                      ? `Check the spelling or try the molecule name, or send “${qText}” to us as a product request.`
-                      : qText
-                        ? `Nothing matches “${qText}” with the current filters. Remove a filter, or send it to us as a product request.`
-                        : "Remove a filter to see more products, or send us a product request."}
-                </p>
-                {(otherStrengths || suggestions.length > 0) && (
-                  <ul className="flex flex-wrap gap-2" aria-label="Suggestions">
-                    {otherStrengths && (
-                      <li>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => {
-                            setQuery(otherStrengths.q);
-                            requestAnimationFrame(focusResults);
-                          }}
-                        >
-                          Show “{otherStrengths.q}” in other strengths
-                          <span className="font-mono text-xs font-medium text-fg-muted">
-                            {otherStrengths.n}
-                            <span className="sr-only"> products</span>
-                          </span>
-                        </button>
-                      </li>
-                    )}
-                    {suggestions.map(({ chip, n }) => (
-                      <li key={chip.key}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => {
-                            chip.remove();
-                            requestAnimationFrame(focusResults);
-                          }}
-                        >
-                          Remove {chip.name}
-                          <span className="font-mono text-xs font-medium text-fg-muted">
-                            {n}
-                            <span className="sr-only"> products</span>
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="flex flex-wrap gap-3">
-                  {/* With only the search active, "Remove search …" above does the same. */}
-                  {!searchOnly && (
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => {
-                        clearAll();
-                        requestAnimationFrame(focusResults);
-                      }}
-                    >
-                      Clear filters
-                    </button>
-                  )}
-                  <button type="button" className="btn btn-secondary" onClick={requestProduct}>
-                    Request a product
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div ref={resultsRef} onClickCapture={(e) => rememberCatalogueOrigin(e.target, writeUrl)}>
-                {showRows && (
-                  <ul
-                    aria-label="Products"
-                    className={`border-t border-rule transition-opacity duration-150${effView === null || mobile === null ? " md:hidden" : ""}${listDim}`}
-                  >
-                    {visible.map((it, i) => (
-                      <ProductRow key={it.id} item={it} isNew={isNew(i)} index={newIndex(i)} emph={emph} />
-                    ))}
-                  </ul>
-                )}
-                {showTable && (
-                  <div className={`transition-opacity duration-150${mobile === null ? " hidden md:block" : ""}${listDim}`}>
-                    <ProductTable items={visible} wide={sidebarHidden} emph={emph} />
-                  </div>
-                )}
-                {showGrid && (
-                  <div
-                    className={`results-grid${sidebarHidden ? " no-filters" : ""}${updating ? " is-updating" : ""}${effView === null ? " hidden md:grid" : ""}`}
-                  >
-                    {visible.map((it, i) => (
-                      <ProductCard
-                        key={it.id}
-                        item={it}
-                        compact={mobile === true}
-                        isNew={isNew(i)}
-                        index={newIndex(i)}
-                        priority={effView === "grid" && i < 4}
-                        emph={emph}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {total > PAGE_SIZE && (
-              <div className="loadmore">
-                <div className="loadmore-progress" aria-hidden="true">
-                  <span style={{ transform: `scaleX(${shown / total})` }} />
-                </div>
-                <p className="loadmore-text">
-                  <span aria-hidden="true">
-                    {shown} / {total}
-                  </span>
-                  <span className="sr-only">
-                    {shown} of {total} products shown
-                  </span>
-                </p>
-                {remaining > 0 && (
-                  <button type="button" className="btn btn-secondary btn-lg" onClick={loadMore}>
-                    Show {Math.min(PAGE_SIZE, remaining)} more
-                    <span aria-hidden="true"> · </span>
-                    <span className="sr-only">, </span>
-                    {remaining} remaining
-                  </button>
-                )}
-              </div>
-            )}
-
-            {total > 0 && <RequestPanel q={filters.q.trim()} onRequest={requestProduct} className="mt-12 lg:hidden" />}
-          </section>
-        </div>
-      </div>
-
-      <FilterSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        resultCount={total}
-        canClear={activeFilterCount(filters) > 0}
-        onClear={clearSheet}
-      >
-        <FilterGroups
-          variant="sheet"
-          filters={filters}
+      {head}
+      <div className="container-grid pb-16 pt-6 lg:pt-8">
+        <CatalogueFilters
+          categories={categories}
           universe={universe}
           counts={counts}
-          onToggle={toggle}
-          categories={categories}
+          filters={filters}
+          sort={sort}
+          searching={searchTokens.length > 0}
+          countText={countText}
+          canClear={activeFilterCount(filters) > 0}
+          empty={total === 0}
           onCategory={setCategory}
+          onForm={setForm}
+          onSort={onSort}
+          onClear={clearFilters}
         />
-      </FilterSheet>
 
-      <BackToTop targetId={CATALOGUE_TITLE_ID} />
+        <section aria-labelledby={resultsHeadingId} className="mt-6">
+          <h2 id={resultsHeadingId} tabIndex={-1} className="sr-only">
+            Results: {countText}
+          </h2>
+
+          {total === 0 ? (
+            <div className="empty">
+              <h3>{emptyTitle}</h3>
+              {dym && (
+                <p className="measure">
+                  Did you mean{" "}
+                  <Link href={`/medicines?molecule=${encodeURIComponent(dym.value)}`} className="link-arrow underline">
+                    {dym.value}
+                  </Link>
+                  ?
+                </p>
+              )}
+              <p className="measure text-fg-muted">
+                {otherStrengths
+                  ? "We don’t list that strength. See the strengths we do list, or send us a request."
+                  : searchOnly
+                    ? "Check the spelling or try the molecule name, or send us a request."
+                    : "Try removing a filter, or send us a request."}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {otherStrengths && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setQuery(otherStrengths.q);
+                      requestAnimationFrame(focusResults);
+                    }}
+                  >
+                    Show “{otherStrengths.q}” in other strengths
+                  </button>
+                )}
+                {!searchOnly && !otherStrengths && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      clearAll();
+                      requestAnimationFrame(focusResults);
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                )}
+                <button type="button" className="btn btn-secondary" onClick={requestProduct}>
+                  Request a product
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div ref={resultsRef} onClickCapture={(e) => rememberCatalogueOrigin(e.target, writeUrl)}>
+              {showRows && (
+                <ul
+                  aria-label="Products"
+                  className={`border-t border-rule transition-opacity duration-150${mobile === null ? " md:hidden" : ""}${listDim}`}
+                >
+                  {visible.map((it, i) => (
+                    <ProductRow key={it.id} item={it} isNew={isNew(i)} index={newIndex(i)} emph={emph} />
+                  ))}
+                </ul>
+              )}
+              {showGrid && (
+                <div
+                  className={`results-grid${updating ? " is-updating" : ""}${mobile === null ? " hidden md:grid" : ""}`}
+                >
+                  {visible.map((it, i) => (
+                    <ProductCard
+                      key={it.id}
+                      item={it}
+                      isNew={isNew(i)}
+                      index={newIndex(i)}
+                      priority={i < 4}
+                      emph={emph}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {remaining > 0 && (
+            <div className="loadmore">
+              <button type="button" className="btn btn-secondary btn-lg" onClick={loadMore}>
+                Show {Math.min(PAGE_SIZE, remaining)} more
+              </button>
+            </div>
+          )}
+
+          {total > 0 && (
+            <p className="mt-12 text-center text-fg-muted">
+              Can’t find a product?{" "}
+              <button type="button" className="link-inline" onClick={requestProduct}>
+                Send us a request
+              </button>
+            </p>
+          )}
+        </section>
+      </div>
     </CatalogContext.Provider>
-  );
-}
-
-function RequestPanel({ q, onRequest, className = "" }: { q: string; onRequest: () => void; className?: string }) {
-  return (
-    <div className={`panel ${className}`}>
-      <h3 className="text-h4">Can’t find a product?</h3>
-      <p className="mt-2 text-sm text-fg-muted">
-        {q
-          ? `Send “${q}” to our export team as a request with your enquiry list.`
-          : "Tell us what you need. It goes to our export team with your enquiry list."}
-      </p>
-      <button type="button" className="link-arrow mt-1" onClick={onRequest}>
-        Request it
-        <ArrowRight aria-hidden />
-      </button>
-    </div>
   );
 }

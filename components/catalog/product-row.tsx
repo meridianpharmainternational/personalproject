@@ -12,11 +12,9 @@ import { moleculeLabel } from "@/lib/format";
 const MAX_STRENGTHS = 3;
 
 /**
- * Dense list row (mobile default view): 64px thumb, then the name over two
- * one-line subs, "molecule · form" and "strengths +N more" (each truncated, so
- * the strengths always keep their own line; the 64px thumb still sets the row
- * height), then the 44px Add icon button. About 6 products fit on a phone
- * screen. Render inside a <ul>/<ol>.
+ * Dense list row (phones): 64px thumb, then the name over the molecule (as on
+ * the cards; it wraps rather than being cut off) and a one-line
+ * "strengths +N more", then the 44px Add icon button. Render inside a <ul>/<ol>.
  */
 export function ProductRow({
   item,
@@ -38,7 +36,7 @@ export function ProductRow({
   const { items } = useEnquiryList();
   const inList = items.some((i) => i.medicineId === item.id);
   const abbr = (item.form ?? "PRD").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "PRD";
-  const meta = [moleculeLabel(item.molecule, item.ester), item.form].filter(Boolean).join(" · ");
+  const molecule = moleculeLabel(item.molecule, item.ester);
   const { shown, more } = strengthLine(item.strengths, emph, MAX_STRENGTHS);
 
   return (
@@ -58,7 +56,7 @@ export function ProductRow({
         <p className="prow-title">
           <Link href={`/medicines/${item.id}`}>{item.name}</Link>
         </p>
-        {meta && <p className="prow-sub truncate">{meta}</p>}
+        {molecule && <p className="prow-sub">{molecule}</p>}
         {shown && (
           // The remainder never shrinks, so a long first strength is what gets the
           // ellipsis and "+N more" stays readable even at 320px. Its spaces are

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ListPlus, Plus } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import { enquiryList, useEnquiryList } from "@/lib/enquiry-list";
 import {
   removeLineWithUndo,
@@ -26,10 +26,9 @@ export function productLabel(p: Pick<ProductLike, "name" | "form" | "strengths">
  * results, table). One tap adds; tapping again removes what it added (with
  * Undo in the toast). It never moves the user's scroll position.
  *
- * - variant="button": green `btn-enquire` with label ("Add to enquiry" /
- *   "In enquiry list"). While in the list, its accessible name also states
+ * - variant="button": green `btn-enquire` labelled "Add" / "Added". While in the list, its accessible name also states
  *   the action ("… Press to remove.") so pressing it is never a surprise.
- * - variant="icon": 44px icon button for dense rows and search results.
+ * - variant="icon": the same green as a 44px icon (plus / check) for dense rows and search results.
  *
  * `strength` is the one strength the buyer already named (typed "100mg" or
  * filtered by it), so the line is added with it instead of "Any / to be
@@ -38,7 +37,7 @@ export function productLabel(p: Pick<ProductLike, "name" | "form" | "strengths">
  * ignored, and leaving it out keeps the default (the sole strength, else Any).
  *
  * With such a strength (on a product that has several), the control is about
- * that one line: it shows "In enquiry list" only when that strength is listed,
+ * that one line: it shows "Added" only when that strength is listed,
  * and pressing it then removes just that line. So a buyer who listed
  * "Cenforce 100 mg" and now searches "cenforce 50mg" can add the 50 mg line
  * too, and nothing else they listed is removed. Without one, the control
@@ -98,14 +97,14 @@ export function AddToEnquiry({
       <button
         type="button"
         onClick={toggle}
-        className={`icon-btn${inList ? " is-added" : ""} ${className}`}
+        className={`icon-btn icon-btn-add${inList ? " is-added" : ""} ${className}`}
         aria-label={
           inList
             ? `${addLabel} is in your enquiry list. Remove it`
             : `Add ${addLabel} to enquiry list`
         }
       >
-        {inList ? <Check aria-hidden /> : <ListPlus aria-hidden />}
+        {inList ? <Check aria-hidden /> : <Plus aria-hidden />}
       </button>
     );
   }
@@ -118,15 +117,7 @@ export function AddToEnquiry({
       className={`btn btn-enquire${sizeCls}${inList ? " is-added" : ""}${justAdded ? " is-just-added" : ""} ${className}`}
     >
       {inList ? <Check aria-hidden /> : <Plus aria-hidden />}
-      <span>
-        {inList ? (
-          "In enquiry list"
-        ) : (
-          <>
-            Add<span className="btn-label-long"> to enquiry</span>
-          </>
-        )}
-      </span>
+      <span>{inList ? "Added" : "Add"}</span>
       {inList ? (
         <span className="sr-only"> — {addLabel}. Press to remove.</span>
       ) : (

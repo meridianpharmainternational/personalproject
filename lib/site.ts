@@ -25,7 +25,7 @@ export const site = {
   certifications: ["WHO-GMP", "ISO 9001:2015", "GDP Compliant"],
 
   nav: [
-    { href: "/medicines", label: "Catalogue" },
+    { href: "/medicines", label: "Products" },
     { href: "/about", label: "About" },
     { href: "/contact", label: "Contact" },
   ],

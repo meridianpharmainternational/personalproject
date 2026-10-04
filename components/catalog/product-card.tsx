@@ -8,15 +8,15 @@ import type { CatalogItem } from "@/lib/catalog";
 import { keepTogether, moleculeLabel } from "@/lib/format";
 import { emphStrength, tagStrengths } from "@/components/catalog/catalog-model";
 
-/** Strength badges shown before the "+N" overflow badge (spec §6). */
+/** Strengths named before the "+N" remainder. */
 const MAX_STRENGTHS = 3;
 
 /**
- * Grid product card. The title link's ::after covers the whole card (one big
- * tap target to the product page); the Add button sits above it. In the
- * enquiry list the card gets a green border + permanent green top rule.
- * Hover (fine pointers): navy border, top rule slides in, image scales 1.03 —
- * the card itself never moves.
+ * Product card: photo, name, molecule, one line of strengths and Add. The
+ * title link's ::after covers the whole card (one big tap target to the
+ * product page); the Add button sits above it. In the enquiry list the card
+ * gets a green border. Only "Made to order" is flagged (most products are in
+ * stock). Strengths the buyer filtered or searched for come first.
  */
 export function ProductCard({
   item,
@@ -41,14 +41,8 @@ export function ProductCard({
   const { items } = useEnquiryList();
   const inList = items.some((i) => i.medicineId === item.id);
   const s = tagStrengths(item.strengths, emph);
-  const shown = s.slice(0, MAX_STRENGTHS);
-  const more = s.length - shown.length;
-  const chip = (x: (typeof s)[number]) => (
-    <span key={x.value} className={x.match ? "badge badge-code is-match" : "badge badge-code"}>
-      {x.value}
-    </span>
-  );
-  const stock = item.availability === "in-stock";
+  const more = s.length - MAX_STRENGTHS;
+  const strengths = s.slice(0, MAX_STRENGTHS).map((x) => keepTogether(x.value)).join(", ");
   const molecule = moleculeLabel(item.molecule, item.ester);
 
   return (
@@ -66,34 +60,20 @@ export function ProductCard({
             <span className="pcard-ph-name">{item.name}</span>
           </div>
         )}
-        <span className={`pcard-flag badge ${stock ? "badge-stock" : "badge-mto"}`}>
-          {stock ? "In stock" : "Made to order"}
-        </span>
+        {item.availability !== "in-stock" && <span className="pcard-flag badge badge-mto">Made to order</span>}
       </div>
 
       <div className="pcard-body">
-        {item.category && <p className="pcard-cat">{item.category.name}</p>}
         <h3 className="pcard-title">
           <Link href={`/medicines/${item.id}`}>{item.name}</Link>
         </h3>
         {molecule && <p className="pcard-molecule">{molecule}</p>}
-        {s.length > 0 && (
-          <div className="pcard-meta">
-            {(more > 0 ? shown.slice(0, -1) : shown).map(chip)}
-            {more > 0 && (
-              // The count stays with the last strength, so "+N" never wraps onto a row by itself.
-              <span className="flex gap-1.5">
-                {chip(shown[shown.length - 1])}
-                <span className="badge badge-code">+{more}</span>
-              </span>
-            )}
-          </div>
+        {strengths && (
+          <p className="pcard-strengths">
+            {strengths}
+            {more > 0 && <span className="whitespace-nowrap"> +{more} more</span>}
+          </p>
         )}
-        <p className="pcard-spec">
-          {[item.form, item.pack && keepTogether(item.pack), item.moq && `MOQ ${keepTogether(item.moq)}`]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
         <div className="pcard-actions">
           <AddToEnquiry product={item} strength={emphStrength(item.strengths, emph)} />
         </div>

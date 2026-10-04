@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Mail, Menu, MessageCircle, Phone, Search, X } from "lucide-react";
+import { ClipboardList, Menu, Search, X } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { ProductSearch } from "@/components/search/product-search";
 import { MobileNav } from "@/components/mobile-nav";
@@ -12,7 +12,7 @@ import type { NavData } from "@/components/category-bar";
 import { forgetCatalogueOrigin } from "@/components/catalog/back-to-results";
 import { enquiryList, useEnquiryList } from "@/lib/enquiry-list";
 import { useDialog } from "@/lib/use-dialog";
-import { contact, site, whatsappLink } from "@/lib/site";
+import { site } from "@/lib/site";
 
 export function SiteHeader({
   nav,
@@ -67,40 +67,12 @@ export function SiteHeader({
     setMenuOpen(false);
   }, [listOpen]);
 
-  const wa = whatsappLink();
   const isStaffArea = pathname.startsWith("/admin") || pathname.startsWith("/login");
+  // The catalogue page has its own search box; a second one in the header would only compete with it.
+  const onCatalogue = pathname === "/medicines";
 
   return (
     <>
-      <aside className="utility-bar" aria-label="Certifications and contact">
-        <div className="container-grid">
-          <span>{site.certifications.join(" · ")}</span>
-          <span className="flex gap-6">
-            {contact.email && (
-              <a href={`mailto:${contact.email}`}>
-                <Mail aria-hidden />
-                {contact.email}
-              </a>
-            )}
-            {contact.phoneHref && (
-              <a href={contact.phoneHref}>
-                <Phone aria-hidden />
-                {contact.phone}
-              </a>
-            )}
-            {wa && (
-              <a href={wa} target="_blank" rel="noopener noreferrer">
-                <MessageCircle aria-hidden />
-                WhatsApp
-              </a>
-            )}
-            {!contact.email && !contact.phoneHref && !wa && (
-              <Link href="/contact">Contact the export desk</Link>
-            )}
-          </span>
-        </div>
-      </aside>
-
       <header className={`site-header${scrolled ? " is-scrolled" : ""}`}>
         {/* Page-change bar on the header’s bottom edge (useSearchParams, so it needs Suspense). */}
         <Suspense fallback={null}>
@@ -123,15 +95,21 @@ export function SiteHeader({
 
           {!isStaffArea && (
             <>
-              <button
-                type="button"
-                className="icon-btn icon-btn-bare search-toggle"
-                aria-label="Search products"
-                onClick={() => setSheetOpen(true)}
-              >
-                <Search aria-hidden />
-              </button>
-              <ProductSearch mode="popover" total={nav.total} />
+              {onCatalogue ? (
+                <span className="ml-auto" aria-hidden="true" />
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="icon-btn icon-btn-bare search-toggle"
+                    aria-label="Search products"
+                    onClick={() => setSheetOpen(true)}
+                  >
+                    <Search aria-hidden />
+                  </button>
+                  <ProductSearch mode="popover" total={nav.total} />
+                </>
+              )}
               <button
                 type="button"
                 className="enq-btn"
@@ -163,10 +141,6 @@ export function SiteHeader({
         <MobileNav
           nav={nav}
           onClose={() => setMenuOpen(false)}
-          onSearch={() => {
-            setMenuOpen(false);
-            setSheetOpen(true);
-          }}
         />
       )}
       {sheetOpen && <SearchSheet total={nav.total} popular={popular} onClose={() => setSheetOpen(false)} />}

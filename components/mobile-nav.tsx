@@ -3,20 +3,18 @@
 import { useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Mail, MessageCircle, Phone, Search, X } from "lucide-react";
+import { Mail, MessageCircle, Phone, X } from "lucide-react";
 import type { NavData } from "@/components/category-bar";
 import { useDialog } from "@/lib/use-dialog";
 import { contact, site, whatsappLink } from "@/lib/site";
 
-/** Full-height mobile menu: search, every category with counts, company links, contact. */
+/** Full-height mobile menu: the categories, company links and contact. */
 export function MobileNav({
   nav,
   onClose,
-  onSearch,
 }: {
   nav: NavData;
   onClose: () => void;
-  onSearch: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -33,8 +31,6 @@ export function MobileNav({
   // Fallback when the opener can't take focus back: the header's menu button.
   useDialog(true, ref, onClose, titleRef, () => document.querySelector<HTMLElement>(".menu-toggle"));
   const wa = whatsappLink();
-  // A total of 0 means the catalogue couldn't load: show no counts rather than "0".
-  const showCounts = nav.total > 0;
 
   return (
     <div ref={ref} data-dialog-root>
@@ -49,13 +45,7 @@ export function MobileNav({
           </button>
         </div>
         <div className="drawer-body !px-0 !pt-0">
-          <div className="px-5 py-4">
-            <button type="button" className="btn btn-secondary btn-block" onClick={onSearch}>
-              <Search aria-hidden /> {showCounts ? `Search ${nav.total} products` : "Search products"}
-            </button>
-          </div>
-
-          <p className="kicker nav-heading">Catalogue</p>
+          <p className="kicker nav-heading">Products</p>
           {/* Every row closes the menu on tap: on /medicines a category link only
               changes the query string, which the header's pathname effect misses. */}
           <Link
@@ -64,7 +54,7 @@ export function MobileNav({
             onClick={onClose}
             aria-current={activeCategory === "" ? "page" : undefined}
           >
-            All products {showCounts && <span className="n">{nav.total}</span>}
+            All products
           </Link>
           {nav.categories.map((c) => (
             <Link
@@ -74,7 +64,7 @@ export function MobileNav({
               onClick={onClose}
               aria-current={activeCategory === c.slug ? "page" : undefined}
             >
-              {c.name} {showCounts && <span className="n">{c.count}</span>}
+              {c.name}
             </Link>
           ))}
 

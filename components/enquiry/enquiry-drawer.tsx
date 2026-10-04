@@ -18,7 +18,6 @@ import { formatEnquiryItems } from "@/lib/format";
 import { whatsappLink } from "@/lib/site";
 import { useDialog } from "@/lib/use-dialog";
 import { announce, toast } from "@/lib/ui-store";
-import { ProductSearch } from "@/components/search/product-search";
 import { PasteList } from "@/components/enquiry/paste-list";
 import { productLabel } from "@/components/enquiry/add-to-enquiry";
 // Type only: the form itself (react-hook-form, zod, the country list) is
@@ -26,8 +25,7 @@ import { productLabel } from "@/components/enquiry/add-to-enquiry";
 import type { EnquiryDetailsForm } from "@/components/enquiry/enquiry-details-form";
 
 type DetailsFormComponent = typeof EnquiryDetailsForm;
-const loadDetailsForm = () =>
-  import("@/components/enquiry/enquiry-details-form").then((m) => m.EnquiryDetailsForm);
+const loadDetailsForm = () => import("@/components/enquiry/enquiry-details-form").then((m) => m.EnquiryDetailsForm);
 
 /** What the paste box hands the drawer through `handleRef`: add every previewed line. */
 type PasteHandle = { add: () => number };
@@ -392,19 +390,20 @@ export function EnquiryDrawer() {
   // refine: false because it means "another" line, so it never replaces a sole
   // "to be advised" line.
   const addStrength = (line: EnquiryItem, strength: string) => {
-    enquiryList.add({
-      medicineId: line.medicineId,
-      name: line.name,
-      molecule: line.molecule,
-      form: line.form,
-      strengths: line.strengths,
-      image: line.image,
-      strength,
-    }, { refine: false });
+    enquiryList.add(
+      {
+        medicineId: line.medicineId,
+        name: line.name,
+        molecule: line.molecule,
+        form: line.form,
+        strengths: line.strengths,
+        image: line.image,
+        strength,
+      },
+      { refine: false },
+    );
     focusInList(`[data-uid="${lineUid(itemKey(line.medicineId, strength))}"] select`);
   };
-
-  const STEPS = ["List", "Details", "Sent"];
 
   return (
     <div ref={containerRef} data-dialog-root>
@@ -429,21 +428,21 @@ export function EnquiryDrawer() {
               </span>
             )}
           </h2>
-          <button type="button" className="icon-btn icon-btn-bare" onClick={requestClose} aria-label="Close enquiry list">
+          <button
+            type="button"
+            className="icon-btn icon-btn-bare"
+            onClick={requestClose}
+            aria-label="Close enquiry list"
+          >
             <X aria-hidden />
           </button>
         </div>
 
-        <ol className="drawer-steps" aria-label="Enquiry progress">
-          {STEPS.map((label, i) => {
-            const s = (i + 1) as Step;
-            return (
-              <li key={label} aria-current={s === step ? "step" : undefined} className={s < step ? "is-done" : undefined}>
-                {String(s).padStart(2, "0")} {label}
-              </li>
-            );
-          })}
-        </ol>
+        {/* Plain progress text, not tabs. It stays in the DOM on step 3 (hidden):
+            globals.css and EnquiryToast find the enquiry drawer by this class. */}
+        <p className="drawer-steps" hidden={step === 3}>
+          {step === 1 ? "Step 1 of 2: your list" : "Step 2 of 2: your details"}
+        </p>
 
         <div ref={bodyRef} className="drawer-body">
           {step === 1 && (
@@ -452,8 +451,7 @@ export function EnquiryDrawer() {
                 <div className="py-8">
                   <h3 className="text-h4">Your enquiry list is empty</h3>
                   <p className="mt-2 text-fg-muted">
-                    Add products from any card, search result or table row — or paste a list below. Then send them
-                    all in one enquiry.
+                    Tap “Add” on any product, or paste a list below. Then send them all in one enquiry.
                   </p>
                   <Link href="/medicines" className="btn btn-primary mt-5" onClick={requestClose}>
                     Browse catalogue <ArrowRight aria-hidden className="icon-trail" />
@@ -487,15 +485,7 @@ export function EnquiryDrawer() {
                 </div>
               )}
 
-              <div className="mt-6">
-                {/* The search field's own label reads the same words, so screen
-                    readers hear them once, as its name. */}
-                <p className="label" aria-hidden="true">
-                  Add more products
-                </p>
-                <ProductSearch mode="inline" />
-              </div>
-              <div ref={pasteRef} className="mt-4">
+              <div ref={pasteRef} className="mt-6">
                 <PasteList {...pasteProps} />
               </div>
             </>
@@ -548,91 +538,87 @@ export function EnquiryDrawer() {
           )}
         </div>
 
-        <div className="drawer-foot">
-          {step === 1 && (
-            <>
-              <button
-                type="button"
-                className="btn btn-enquire btn-lg btn-block"
-                disabled={n === 0 && k === 0}
-                onClick={continueToDetails}
-              >
-                {k > 0 ? (
-                  <>
-                    Add {k} pasted line{k === 1 ? "" : "s"} &amp; continue
-                  </>
-                ) : (
-                  <>
-                    Continue: {n} product{n === 1 ? "" : "s"}
-                  </>
-                )}{" "}
-                <ArrowRight aria-hidden className="icon-trail" />
-              </button>
-              <button type="button" className="btn btn-ghost" onClick={requestClose}>
-                Keep browsing
-              </button>
-            </>
-          )}
-          {step === 2 && (
-            <>
-              <button
-                type="submit"
-                form={formId}
-                className="btn btn-enquire btn-lg btn-block"
-                disabled={pending || !DetailsForm || n === 0}
-              >
-                {pending ? (
-                  <>
-                    <span className="spinner" aria-hidden /> Sending…
-                  </>
-                ) : (
-                  <>
-                    Send enquiry for {n} product{n === 1 ? "" : "s"}
-                  </>
-                )}
-              </button>
-              {wa && (
-                <a
-                  href={wa}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-secondary btn-block"
-                  onClick={() => setWaSent(true)}
+        {/* An empty list has nothing to continue with: no footer, just the
+            empty state's "Browse catalogue" (pasted lines bring it back). */}
+        {!(step === 1 && n === 0 && k === 0) && (
+          <div className="drawer-foot">
+            {step === 1 && (
+              <>
+                <button type="button" className="btn btn-enquire btn-lg btn-block" onClick={continueToDetails}>
+                  {k > 0 ? (
+                    <>
+                      Add {k} pasted line{k === 1 ? "" : "s"} &amp; continue
+                    </>
+                  ) : (
+                    <>
+                      Continue: {n} product{n === 1 ? "" : "s"}
+                    </>
+                  )}{" "}
+                  <ArrowRight aria-hidden className="icon-trail" />
+                </button>
+              </>
+            )}
+            {step === 2 && (
+              <>
+                <button
+                  type="submit"
+                  form={formId}
+                  className="btn btn-enquire btn-lg btn-block"
+                  disabled={pending || !DetailsForm || n === 0}
                 >
-                  <MessageCircle aria-hidden /> Send via WhatsApp instead
-                </a>
-              )}
-              {wa && waSent && n > 0 && (
-                <p className="flex flex-wrap items-center justify-center gap-x-1 text-fg-muted">
-                  Sent on WhatsApp?
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={clearList} disabled={pending}>
-                    Clear these {n} line{n === 1 ? "" : "s"}
-                  </button>
-                </p>
-              )}
-              {/* Disabled while sending, so the result shows where it was sent
+                  {pending ? (
+                    <>
+                      <span className="spinner" aria-hidden /> Sending…
+                    </>
+                  ) : (
+                    <>
+                      Send enquiry for {n} product{n === 1 ? "" : "s"}
+                    </>
+                  )}
+                </button>
+                {wa && (
+                  <a
+                    href={wa}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-block"
+                    onClick={() => setWaSent(true)}
+                  >
+                    <MessageCircle aria-hidden /> Send via WhatsApp instead
+                  </a>
+                )}
+                {wa && waSent && n > 0 && (
+                  <p className="flex flex-wrap items-center justify-center gap-x-1 text-fg-muted">
+                    Sent on WhatsApp?
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={clearList} disabled={pending}>
+                      Clear these {n} line{n === 1 ? "" : "s"}
+                    </button>
+                  </p>
+                )}
+                {/* Disabled while sending, so the result shows where it was sent
                   from; closing stays possible (onSent/onFailed then use a toast). */}
-              <button type="button" className="btn btn-ghost" onClick={() => setStep(1)} disabled={pending}>
-                <ArrowLeft aria-hidden /> Back to list
-              </button>
-            </>
-          )}
-          {step === 3 && (
-            <>
-              <button type="button" className="btn btn-primary btn-lg btn-block" onClick={requestClose}>
-                Close
-              </button>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn btn-secondary btn-sm flex-1" onClick={copy}>
-                  {copied ? <Check aria-hidden /> : <Copy aria-hidden />} {copied ? "Copied" : "Copy summary"}
+                <button type="button" className="btn btn-ghost" onClick={() => setStep(1)} disabled={pending}>
+                  <ArrowLeft aria-hidden /> Back to list
                 </button>
-                <button type="button" className="btn btn-secondary btn-sm flex-1" onClick={() => setStep(1)}>
-                  Start a new list
+              </>
+            )}
+            {step === 3 && (
+              <>
+                <button type="button" className="btn btn-primary btn-lg btn-block" onClick={requestClose}>
+                  Close
                 </button>
-              </div>
-            </>
-          )}
-        </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="btn btn-secondary btn-sm flex-1" onClick={copy}>
+                    {copied ? <Check aria-hidden /> : <Copy aria-hidden />} {copied ? "Copied" : "Copy summary"}
+                  </button>
+                  <button type="button" className="btn btn-secondary btn-sm flex-1" onClick={() => setStep(1)}>
+                    Start a new list
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </aside>
     </div>
   );
@@ -671,7 +657,7 @@ function Line({
     strengths: line.strength ? [line.strength] : [],
   });
   const used = new Set(all.filter((i) => i.medicineId === line.medicineId).map((i) => i.strength));
-  const unused = lastOfProduct ? line.strengths.find((s) => !used.has(s)) ?? null : null;
+  const unused = lastOfProduct ? (line.strengths.find((s) => !used.has(s)) ?? null) : null;
   const custom = line.medicineId.startsWith("custom:");
   // Nothing to choose (custom requests, products with no listed strengths): a
   // select offering only "Any / to be advised" would be noise. A strength typed

@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { EnquiryForm } from "@/components/enquiry/enquiry-form";
-import { OpenEnquiryButton } from "@/components/enquiry/open-enquiry-button";
 import { contact, site, whatsappLink } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -19,114 +17,53 @@ export default function ContactPage() {
 
   return (
     <>
-      {/* ------------------------------------------------------ page head */}
-      <header className="page-head bg-mercator">
+      <header className="page-head">
         <div className="container-grid">
-          <nav aria-label="Breadcrumb">
-            <ol className="crumbs">
-              <li>
-                <Link href="/">Home</Link>
-              </li>
-              <li>
-                <span aria-current="page">Contact</span>
-              </li>
-            </ol>
-          </nav>
-          <h1 className="mt-2 max-w-4xl">Contact the export desk</h1>
+          <h1 className="max-w-4xl">Contact us</h1>
           <p className="lead mt-4">
-            Send a question or a product enquiry. Our export team replies by email with pricing,
-            availability and documentation.
+            Send a question or a product enquiry. Our export team replies by email within one business day.
           </p>
         </div>
       </header>
 
-      {/* --------------------------------------------- form + side panels */}
       <section className="section">
-        <div className="container-grid grid-12 items-start">
-          {/* Left: the enquiry form (no scroll-reveal on forms) */}
-          <section className="panel col-span-full lg:col-span-7 lg:p-8" aria-labelledby="contact-form-title">
-            <h2 id="contact-form-title" className="font-sans text-h3">
+        <div className="container-grid grid-12 items-start gap-y-12">
+          <section className="col-span-full lg:col-span-7" aria-labelledby="contact-form-title">
+            <h2 id="contact-form-title" className="sr-only">
               Send an enquiry
             </h2>
-            <p className="mt-2 text-fg-muted">
-              Tell us what you need: products, quantities, destination market and any documentation
-              requirements.
-            </p>
-            <div className="mt-6">
-              <EnquiryForm source="Contact Form" />
-            </div>
+            <EnquiryForm source="Contact Form" />
           </section>
 
-          {/* Right: direct lines, multi-product lists, what happens next */}
-          <div className="col-span-full grid gap-6 md:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
-            <section className="panel" aria-labelledby="contact-desk">
+          {hasDirect && (
+            <aside className="col-span-full lg:col-span-4 lg:col-start-9" aria-labelledby="contact-desk">
               <h2 id="contact-desk" className="font-sans text-h4">
                 Export desk
               </h2>
-              {hasDirect ? (
-                <ul className="mt-3 border-t border-rule">
-                  {contact.email && (
-                    <ContactRow icon={<Mail aria-hidden />} label="Email" href={`mailto:${contact.email}`}>
-                      {contact.email}
-                    </ContactRow>
-                  )}
-                  {contact.phone && contact.phoneHref && (
-                    <ContactRow icon={<Phone aria-hidden />} label="Phone" href={contact.phoneHref}>
-                      {contact.phone}
-                    </ContactRow>
-                  )}
-                  {wa && (
-                    <ContactRow icon={<MessageCircle aria-hidden />} label="WhatsApp" href={wa} external>
-                      Chat on WhatsApp
-                    </ContactRow>
-                  )}
-                  {contact.address && (
-                    <ContactRow icon={<MapPin aria-hidden />} label="Address">
-                      {contact.address}
-                    </ContactRow>
-                  )}
-                </ul>
-              ) : null}
-              <p className={hasDirect ? "mt-4 text-fg-muted" : "mt-2 text-fg-muted"}>
-                {hasDirect
-                  ? "Or use the form: it reaches the export team directly."
-                  : "The form on this page reaches our export team directly, and they reply by email."}
-              </p>
-            </section>
-
-            <section className="panel corner-ticks" aria-labelledby="contact-list">
-              <h2 id="contact-list" className="font-sans text-h4">
-                Have several products?
-              </h2>
-              <p className="mt-2 text-fg-muted">
-                Add them to your enquiry list from the catalogue, or paste a list you already have. We match
-                it to the catalogue and you send everything as one enquiry.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <OpenEnquiryButton label="Open your enquiry list" className="btn btn-enquire w-full sm:w-auto" />
-                <OpenEnquiryButton paste label="Paste a product list" showCount={false} className="btn btn-secondary w-full sm:w-auto" />
-              </div>
-            </section>
-
-            <section className="md:col-span-2 lg:col-span-1" aria-labelledby="contact-next">
-              <h2 id="contact-next" className="font-sans text-h4">
-                What happens next
-              </h2>
-              <table className="ledger mt-3">
-                <caption className="sr-only">What happens after you send an enquiry</caption>
-                <tbody>
-                  <tr>
-                    <th scope="row">Reply time</th>
-                    <td>Within 1 business day</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Quote includes</th>
-                    <td>Pricing, availability, documentation</td>
-                  </tr>
-                </tbody>
-              </table>
-            </section>
-          </div>
+              <ul className="mt-3 border-t border-rule">
+                {contact.email && (
+                  <ContactRow icon={<Mail aria-hidden />} label="Email" href={`mailto:${contact.email}`}>
+                    {contact.email}
+                  </ContactRow>
+                )}
+                {contact.phone && contact.phoneHref && (
+                  <ContactRow icon={<Phone aria-hidden />} label="Phone" href={contact.phoneHref}>
+                    {contact.phone}
+                  </ContactRow>
+                )}
+                {wa && (
+                  <ContactRow icon={<MessageCircle aria-hidden />} label="WhatsApp" href={wa} external>
+                    Chat on WhatsApp
+                  </ContactRow>
+                )}
+                {contact.address && (
+                  <ContactRow icon={<MapPin aria-hidden />} label="Address">
+                    {contact.address}
+                  </ContactRow>
+                )}
+              </ul>
+            </aside>
+          )}
         </div>
       </section>
     </>

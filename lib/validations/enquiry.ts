@@ -1,8 +1,7 @@
 import { z } from "zod";
 
 /** "Please keep <what> to <n> characters or fewer." for a string max check. */
-const tooLong = (what: string, n: number) =>
-  `Please keep ${what} to ${n.toLocaleString("en")} characters or fewer.`;
+const tooLong = (what: string, n: number) => `Please keep ${what} to ${n.toLocaleString("en")} characters or fewer.`;
 
 /**
  * Enquiry form (contact page + the enquiry-list drawer).
@@ -10,7 +9,7 @@ const tooLong = (what: string, n: number) =>
  * All fields are plain strings (optional ones simply allow ""), which keeps the
  * react-hook-form value type and the resolver output identical — no optional/
  * default mismatch. The refine ensures we capture something actionable: either
- * a written message or at least one product.
+ * a written message (contact form) or at least one product (enquiry list).
  *
  * Every check carries its own message: submitEnquiry returns the first issue's
  * message to the buyer as-is, so a Zod default must never reach the page.
@@ -33,7 +32,7 @@ export const enquirySchema = z
     message: z.string().trim().max(3000, tooLong("your message", 3000)),
   })
   .refine((d) => d.message.length >= 5 || d.product.length > 0, {
-    message: "Please add a short message (at least 5 characters) or list the products you need.",
+    message: "Please write a short message (at least 5 characters).",
     path: ["message"],
   });
 

@@ -16,7 +16,7 @@ export default async function LoginPage({
   const sp = await searchParams;
 
   return (
-    <div className="bg-paper bg-mercator border-b border-rule">
+    <div className="bg-paper border-b border-rule">
       <div className="container-grid flex min-h-[70vh] items-center justify-center py-12 lg:py-20">
         <div className="panel w-full max-w-md p-6 sm:p-8">
           <Logo />
