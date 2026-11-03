@@ -45,6 +45,10 @@ export default function TermsPage() {
           offer by either party. Pricing, availability, lead times and documentation are confirmed by our
           export team in writing. Any supply is made only under terms agreed separately in writing.
         </p>
+        <p>
+          Payment is made against our written quotation or proforma invoice, using one of the methods we
+          accept: {site.payments.join(", ")}. Orders are processed {site.shipping.processing}.
+        </p>
       </LegalSection>
 
       <LegalSection title="4. Regulatory responsibility">

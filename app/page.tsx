@@ -66,7 +66,9 @@ export default async function HomePage() {
             <h1 id="home-title" className="text-display mt-5">
               Global access to better health.
             </h1>
-            <p className="lead mt-6">Licensed exporter of finished pharmaceutical formulations.</p>
+            <p className="lead mt-6">
+              Licensed exporter of finished pharmaceutical formulations, with {site.exportReach.short}.
+            </p>
             <Link className="btn btn-inverse btn-lg mt-8 w-full sm:w-auto" href="/medicines">
               Browse products
               <ArrowRight aria-hidden strokeWidth={1.75} className="icon-trail" />

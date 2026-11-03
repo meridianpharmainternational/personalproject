@@ -10,6 +10,14 @@ export const metadata: Metadata = {
 };
 
 export default function AboutPage() {
+  const terms: { key: string; value: string }[] = [
+    { key: "Processing", value: site.shipping.processing },
+    { key: "Standard delivery", value: site.shipping.standard },
+    { key: "Express delivery", value: site.shipping.express },
+    { key: "Payments we accept", value: site.payments.join(" · ") },
+    { key: "Export desk", value: `${site.deskHours}. Replies within one business day.` },
+  ];
+
   return (
     <>
       <header className="page-head">
@@ -57,6 +65,28 @@ export default function AboutPage() {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      <section className="section" aria-labelledby="about-shipping">
+        <div className="container-grid">
+          <div className="max-w-3xl">
+            <h2 id="about-shipping">Shipping and payment</h2>
+            <p className="lead mt-2">
+              {site.exportReach.long} {site.exportReach.note}
+            </p>
+            <table className="ledger mt-8">
+              <caption className="sr-only">Shipping and payment</caption>
+              <tbody>
+                {terms.map((r) => (
+                  <tr key={r.key}>
+                    <th scope="row">{r.key}</th>
+                    <td>{r.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </>

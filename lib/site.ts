@@ -16,11 +16,35 @@ export const site = {
   whatsapp: "+000000000000", // digits only used for wa.me links
   address: "TODO: Street, City, Country",
 
-  // Market reach. TODO: set confirmed=true once the figure is verified.
-  markets: { count: 50, confirmed: false },
-
-  // Legacy figures kept for compatibility; product counts now come from the DB.
-  stats: { countries: 50, products: 1200, years: 20 },
+  /*
+   * Export reach, shipping, payment and desk hours: the same terms as the Divine
+   * Enterprises site (owner's request, 2026-11-03), plus Zelle.
+   * TODO(content): confirm each with the owner; add the desk's time zone (the
+   * Divine site doesn't state one).
+   */
+  exportReach: {
+    /** Footer, hero and About. */
+    short: "worldwide shipping to 50+ countries",
+    long: "Worldwide shipping to 50+ countries across five continents.",
+    note: "Shipping availability may vary based on product type, destination and regulatory restrictions.",
+  },
+  shipping: {
+    processing: "1–2 business days after payment confirmation",
+    standard: "10–15 business days",
+    express: "7–9 business days, with real-time tracking",
+  },
+  payments: [
+    "Bank transfer",
+    "Wise (card / Visa)",
+    "MoneyGram",
+    "Bitcoin",
+    "Ethereum (ETH)",
+    "USDT",
+    "Zelle",
+    "Monzo",
+    "Revolut / Remitly",
+  ],
+  deskHours: "Monday to Saturday, 9:00–18:00",
 
   certifications: ["WHO-GMP", "ISO 9001:2015", "GDP Compliant"],
 

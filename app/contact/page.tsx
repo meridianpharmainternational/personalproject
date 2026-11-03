@@ -21,7 +21,8 @@ export default function ContactPage() {
         <div className="container-grid">
           <h1 className="max-w-4xl">Contact us</h1>
           <p className="lead mt-4">
-            Send a question or a product enquiry. Our export team replies by email within one business day.
+            Send a question or a product enquiry. Our export team replies by email within one business day (
+            {site.deskHours}).
           </p>
         </div>
       </header>

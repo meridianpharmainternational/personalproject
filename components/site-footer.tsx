@@ -5,8 +5,8 @@ import logo from "@/app/assets/logo.png";
 import { contact, site, whatsappLink } from "@/lib/site";
 
 /**
- * Quiet footer: brand, the site's main links, contact details (only once real ones are set in
- * lib/site.ts) and the legal line.
+ * Quiet footer: brand and export reach, the site's main links, the payments we accept, contact details
+ * (only once real ones are set in lib/site.ts) and the legal line.
  */
 export function SiteFooter() {
   const year = new Date().getFullYear();
@@ -16,7 +16,7 @@ export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="container-grid grid grid-cols-2 gap-x-6 gap-y-10 py-14 lg:grid-cols-4">
-        <div className="col-span-2">
+        <div className={hasDirect ? "col-span-2 lg:col-span-1" : "col-span-2"}>
           {/* The 3:2 artwork is cropped to a square around its own ring (x 273–1261, y 13–1001 of
               1536×1024), so the ring fills the disc and the wordmark stays legible. */}
           <span className="logo-disc max-sm:h-24 max-sm:w-24">
@@ -29,7 +29,8 @@ export function SiteFooter() {
             />
           </span>
           <p className="mt-4 max-w-xs">
-            Licensed pharmaceutical exporter supplying importers and distributors worldwide.
+            Licensed pharmaceutical exporter supplying importers and distributors across five continents, with{" "}
+            {site.exportReach.short}.
           </p>
           <p className="mt-3 text-sm text-on-dark-subtle">{site.certifications.join(" · ")}</p>
         </div>
@@ -43,6 +44,15 @@ export function SiteFooter() {
                   {i.label}
                 </Link>
               </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <p className="footer-heading">Payments we accept</p>
+          <ul className="space-y-1 pt-2 text-on-dark-muted">
+            {site.payments.map((p) => (
+              <li key={p}>{p}</li>
             ))}
           </ul>
         </div>
