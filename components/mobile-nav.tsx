@@ -79,9 +79,13 @@ export function MobileNav({ nav, onClose }: { nav: NavData; onClose: () => void 
             ))}
 
           <div className="space-y-2 px-5 py-5">
-            {contact.email && (
+            {contact.email && contact.emailParts && (
               <a className="btn btn-secondary btn-block" href={`mailto:${contact.email}`}>
-                <Mail aria-hidden /> {contact.email}
+                <Mail aria-hidden className="flex-none" />{" "}
+                <span className="break-words">
+                  {contact.emailParts[0]}@<wbr />
+                  {contact.emailParts[1]}
+                </span>
               </a>
             )}
             {contact.phoneHref && (

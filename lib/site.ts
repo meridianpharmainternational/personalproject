@@ -10,12 +10,12 @@ export const site = {
   description:
     "Meridian Pharma International is a global pharmaceutical exporter. Build one enquiry list across our catalogue and our export team replies with pricing, availability and documentation.",
 
-  // Contact details from the owner (2026-11-04). Placeholders (email, address) stay hidden.
-  // TODO(content): email and postal address; confirm the number is on WhatsApp.
-  email: "exports@meridianpharma.example",
+  // Contact details from the owner (2026-11-04); the same number is on WhatsApp.
+  // The owner gave the city only, so no street address is shown.
+  email: "meridianpharmainternational@gmail.com",
   phone: "+91 91850 81244",
   whatsapp: "+91 91850 81244", // digits only are used for wa.me links
-  address: "TODO: Street, City, Country",
+  address: "Nagpur, India",
   /** Social channels: contact bar, footer, phone menu, Contact page and the hero. */
   social: [
     { name: "Telegram", handle: "@Meridianpharmainternational", href: "https://t.me/Meridianpharmainternational" },
@@ -79,6 +79,8 @@ const isPlaceholderText = (v: string) => !v.trim() || /^\s*todo\b/i.test(v);
 /** Real contact details only — each is null while it is still a placeholder. */
 export const contact = {
   email: isPlaceholderEmail(site.email) ? null : site.email,
+  /** The address split at the "@", so narrow columns can wrap it there (a <wbr>) instead of mid-word. */
+  emailParts: isPlaceholderEmail(site.email) ? null : (site.email.split("@") as [string, string]),
   phone: isPlaceholderPhone(site.phone) ? null : site.phone,
   phoneHref: isPlaceholderPhone(site.phone) ? null : `tel:${site.phone.replace(/[^\d+]/g, "")}`,
   address: isPlaceholderText(site.address) ? null : site.address,

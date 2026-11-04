@@ -293,8 +293,9 @@
   color:inherit; font-weight:500; text-decoration:none; white-space:nowrap; }
 .utility-link:first-child { padding-left:0; }
 .utility-link svg { width:18px; height:18px; flex:none; }
+.utility-mail { display:none; }
 .utility-hours { display:none; margin-left:auto; white-space:nowrap; color:var(--on-dark-subtle); }
-@media (min-width:1024px) { .utility-hours { display:inline; } }
+@media (min-width:1024px) { .utility-mail { display:inline-flex; } .utility-hours { display:inline; } }
 /* Phones: channel names become icons only (the labels stay for screen readers); under 360px the number too. */
 @media (max-width:639.98px) { .utility-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; } }
 @media (max-width:359.98px) { .utility-phone { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }

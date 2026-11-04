@@ -59,13 +59,18 @@ export function SiteFooter() {
         </div>
 
         {hasDirect && (
-          <div>
+          /* Full width on phones: the email address needs the room. */
+          <div className="col-span-2 lg:col-span-1">
             <p className="footer-heading">Contact</p>
             <ul>
-              {contact.email && (
+              {contact.email && contact.emailParts && (
                 <li>
                   <a className="footer-link" href={`mailto:${contact.email}`}>
-                    <Mail aria-hidden className="h-4 w-4" /> {contact.email}
+                    <Mail aria-hidden className="h-4 w-4 flex-none" />{" "}
+                    <span className="break-words">
+                      {contact.emailParts[0]}@<wbr />
+                      {contact.emailParts[1]}
+                    </span>
                   </a>
                 </li>
               )}
