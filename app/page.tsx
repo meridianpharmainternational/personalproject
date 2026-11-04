@@ -1,8 +1,9 @@
 import { Fragment } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Phone, Truck } from "lucide-react";
+import { ArrowRight, Truck } from "lucide-react";
 import { HeroChart } from "@/components/hero-chart";
+import { BrandMark } from "@/components/social-icon";
 import { ProductCard } from "@/components/catalog/product-card";
 import { getCatalogItems, getCatalogSummary, varied } from "@/lib/catalog";
 import { contact, site, whatsappLink } from "@/lib/site";
@@ -47,13 +48,14 @@ export default async function HomePage() {
     .filter((it): it is NonNullable<typeof it> => !!it);
   const featured = varied([...firstPerCategory, ...items], FEATURED_N);
 
-  // Quick ways to reach the desk, under the hero buttons.
+  // Quick ways to reach the desk, under the hero buttons: the number, then the WhatsApp and
+  // Telegram marks (icon only; the name stays for screen readers).
   const wa = whatsappLink();
   const telegram = site.social.find((s) => s.name === "Telegram");
-  const reach: { label: string; href: string; external?: boolean }[] = [];
-  if (contact.phone && contact.phoneHref) reach.push({ label: contact.phone, href: contact.phoneHref });
-  if (wa) reach.push({ label: "WhatsApp", href: wa, external: true });
-  if (telegram) reach.push({ label: "Telegram", href: telegram.href, external: true });
+  const reach: { kind: "Phone" | "WhatsApp" | "Telegram"; label: string; href: string; external?: boolean }[] = [];
+  if (contact.phone && contact.phoneHref) reach.push({ kind: "Phone", label: contact.phone, href: contact.phoneHref });
+  if (wa) reach.push({ kind: "WhatsApp", label: "WhatsApp", href: wa, external: true });
+  if (telegram) reach.push({ kind: "Telegram", label: "Telegram", href: telegram.href, external: true });
 
   return (
     <>
@@ -94,18 +96,18 @@ export default async function HomePage() {
                 </span>
               </li>
               {reach.length > 0 && (
-                <li className="text-flow">
-                  <Phone aria-hidden strokeWidth={1.75} />
-                  <span>
-                    {reach.map((r, i) => (
-                      <Fragment key={r.label}>
-                        {i > 0 && " · "}
-                        <a href={r.href} {...(r.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
-                          {r.label}
-                        </a>
-                      </Fragment>
-                    ))}
-                  </span>
+                <li className="hero-reach">
+                  {reach.map((r) => (
+                    <a
+                      key={r.kind}
+                      className="hero-reach-link"
+                      href={r.href}
+                      {...(r.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                    >
+                      <BrandMark name={r.kind} />
+                      <span className={r.kind === "Phone" ? undefined : "sr-only"}>{r.label}</span>
+                    </a>
+                  ))}
                 </li>
               )}
             </ul>

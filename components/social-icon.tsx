@@ -36,3 +36,50 @@ export function SocialIcon({ name, className }: { name: SocialName; className?: 
     </svg>
   );
 }
+
+/* Filled glyphs (lucide outlines used as solid shapes) for the brand discs below. */
+const HANDSET =
+  "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z";
+const BUBBLE = "M7.9 20A9 9 0 1 0 4 16.1L2 22Z";
+const PLANE = "m22 2-7 20-4-9-9-4Z";
+
+/**
+ * Round, brand-coloured marks for the hero's quick-contact row (the owner wanted the WhatsApp
+ * and Telegram logos there rather than names): WhatsApp green with a bubble and handset,
+ * Telegram blue with the paper plane, and a white disc with a navy handset for the phone.
+ */
+export function BrandMark({ name, className }: { name: "Phone" | "WhatsApp" | "Telegram"; className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+    >
+      {name === "Phone" && (
+        <>
+          <circle cx="12" cy="12" r="12" fill="#fff" />
+          <path d={HANDSET} fill="#0f2350" transform="translate(6 6) scale(.5)" />
+        </>
+      )}
+      {name === "WhatsApp" && (
+        <>
+          <circle cx="12" cy="12" r="12" fill="#25d366" />
+          <path d={BUBBLE} fill="#fff" transform="translate(4.6 4.6) scale(.62)" />
+          <path d={HANDSET} fill="#25d366" transform="translate(8.8 8.6) scale(.28)" />
+        </>
+      )}
+      {name === "Telegram" && (
+        <>
+          <circle cx="12" cy="12" r="12" fill="#26a5e4" />
+          <g transform="translate(5.2 5.6) scale(.56)">
+            <path d={PLANE} fill="#fff" />
+            <path d="M22 2 11 13" stroke="#26a5e4" strokeWidth="2.5" strokeLinecap="round" />
+          </g>
+        </>
+      )}
+    </svg>
+  );
+}

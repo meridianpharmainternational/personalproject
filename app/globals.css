@@ -162,6 +162,11 @@
 .hero-notes svg { flex:none; width:20px; height:20px; margin-top:.2em; color:var(--leaf-300); }
 .hero-notes b { font-weight:600; color:#fff; }
 .hero-notes a { color:#fff; text-decoration:underline; text-decoration-color:rgba(255,255,255,.4); text-underline-offset:.2em; }
+/* Second row: the number and the WhatsApp / Telegram marks (components/social-icon.tsx BrandMark) as buttons. */
+.hero-notes .hero-reach { display:flex; flex-wrap:wrap; gap:.5rem; }
+.hero-notes .hero-reach-link { display:inline-flex; align-items:center; gap:.5rem; min-height:44px; min-width:44px; padding:0 .625rem;
+  border:1px solid rgba(255,255,255,.18); border-radius:var(--r-2); background:rgba(255,255,255,.06); color:#fff; font-weight:500; text-decoration:none; }
+.hero-notes .hero-reach-link svg { width:24px; height:24px; margin:0; }
 
 /* ------------------------------------------------------ section header */
 /* A link-styled button inside running text ("Can’t find a product? Send us a request"). */
@@ -698,6 +703,7 @@ html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-p
   .btn-ghost:hover, .crumbs a:hover, .footer-link:hover { text-decoration-color:currentColor; }
   .footer-link:hover, .utility-link:hover { color:#fff; }
   .hero-notes a:hover { text-decoration-color:currentColor; }
+  .hero-notes .hero-reach-link:hover { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.4); }
   .btn-inverse:hover { background:var(--navy-50); }
   .btn-outline-inverse:hover { background:rgba(255,255,255,.08); border-color:#fff; }
   .btn:hover .icon-trail, .link-arrow:hover svg { transform:translateX(3px); }
@@ -768,7 +774,7 @@ html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-p
   .hero-art .ha-grid { opacity:.08; }
 }
 @media (forced-colors:active) {
-  .btn, .chip, .badge, .count-badge, .pcard, .enq-btn, .toggle-chip { border:1px solid CanvasText; }
+  .btn, .chip, .badge, .count-badge, .pcard, .enq-btn, .toggle-chip, .hero-reach-link { border:1px solid CanvasText; }
   .badge-code.is-match { outline:2px solid CanvasText; outline-offset:1px; }
   .hero-art, .hero::before, .hero::after { display:none; }
   .utility-bar { border-bottom:1px solid CanvasText; }
