@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Clock, CreditCard, Mail, MapPin, MessageCircle, Phone, Truck } from "lucide-react";
+import { Clock, CreditCard, Mail, MessageCircle, Phone, Truck } from "lucide-react";
 import { EnquiryForm } from "@/components/enquiry/enquiry-form";
 import { SocialIcon } from "@/components/social-icon";
 import { contact, site, whatsappLink } from "@/lib/site";
@@ -14,7 +14,7 @@ export default function ContactPage() {
   const wa = whatsappLink();
   // Only real details are listed; placeholders in lib/site.ts come back as null.
   // TODO(content): confirm business hours and time zone before listing them here.
-  const hasDirect = Boolean(contact.email || contact.phone || wa || contact.address || site.social.length);
+  const hasDirect = Boolean(contact.email || contact.phone || wa || site.social.length);
   const terms: { icon: ReactNode; label: string; value: string }[] = [
     { icon: <Clock aria-hidden />, label: "Processing", value: site.shipping.processing },
     { icon: <Truck aria-hidden />, label: "Standard delivery", value: site.shipping.standard },
@@ -76,11 +76,6 @@ export default function ContactPage() {
                       {s.handle}
                     </ContactRow>
                   ))}
-                  {contact.address && (
-                    <ContactRow icon={<MapPin aria-hidden />} label="Address">
-                      {contact.address}
-                    </ContactRow>
-                  )}
                 </ul>
               </>
             )}

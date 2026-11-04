@@ -8,8 +8,6 @@ import { ProductCard } from "@/components/catalog/product-card";
 import { getCatalogItems, getCatalogSummary, varied } from "@/lib/catalog";
 import { contact, site, whatsappLink } from "@/lib/site";
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
 /** Products shown under "Featured products": one per molecule, mixed across categories. */
 const FEATURED_N = 4;
 
@@ -24,23 +22,16 @@ const STEPS = [
 
 /* ----------------------------------------------------------------- metadata */
 
-// Strict reads: if the catalogue can't be loaded during an ISR regeneration,
-// the render throws and Next keeps serving the last good page.
-export async function generateMetadata(): Promise<Metadata> {
-  const s = await getCatalogSummary({ strict: true });
-  const description =
-    s.total > 0
-      ? `${site.fullName} exports ${s.total} pharmaceutical products across ${s.categoryCount} categories. Build one enquiry list and receive pricing, availability and documentation in a single reply.`
-      : site.description;
-  return { description, openGraph: { description } };
-}
+const description = `${site.fullName} exports finished pharmaceutical formulations, with ${site.catalogueSize} products available to order. Build one enquiry list and receive pricing, availability and documentation in a single reply.`;
+export const metadata: Metadata = { description, openGraph: { description } };
 
 /* --------------------------------------------------------------------- page */
 
+// Strict reads: if the catalogue can't be loaded during an ISR regeneration,
+// the render throws and Next keeps serving the last good page.
 export default async function HomePage() {
   const [summary, items] = await Promise.all([getCatalogSummary({ strict: true }), getCatalogItems({ strict: true })]);
-  const { total, categoryCount, categories } = summary;
-  const hasCatalog = total > 0;
+  const { categories } = summary;
 
   // One product per category first, so the four featured products are varied.
   const firstPerCategory = categories
@@ -77,7 +68,8 @@ export default async function HomePage() {
               Global access to <span className="text-leaf-300">better health</span>.
             </h1>
             <p className="lead mt-6">
-              Licensed exporter of finished pharmaceutical formulations to importers and distributors worldwide.
+              Licensed exporter of finished pharmaceutical formulations, with {site.catalogueSize} products available to
+              importers and distributors worldwide.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link className="btn btn-inverse btn-lg" href="/medicines">
@@ -122,11 +114,7 @@ export default async function HomePage() {
             <header className="sec-head">
               <div>
                 <h2 id="home-categories">Browse by category</h2>
-                {hasCatalog && (
-                  <p className="lead">
-                    {plural(total, "product", "products")} across {plural(categoryCount, "category", "categories")}.
-                  </p>
-                )}
+                <p className="lead">Our most requested ranges; {site.catalogueSize} products are available to order.</p>
               </div>
               <Link className="link-arrow" href="/medicines">
                 View all products
@@ -138,7 +126,7 @@ export default async function HomePage() {
                 <li key={c.slug}>
                   <Link href={`/medicines?category=${encodeURIComponent(c.slug)}`} className="cat-card">
                     <span className="cat-card-name">{c.name}</span>
-                    <span className="cat-card-meta">{plural(c.count, "product", "products")}</span>
+                    {c.blurb && <span className="cat-card-meta">{c.blurb}</span>}
                   </Link>
                 </li>
               ))}

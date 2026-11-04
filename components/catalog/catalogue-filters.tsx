@@ -90,9 +90,11 @@ export function CatalogueFilters({
       </div>
       {!empty && (
         <div className="cat-filters-meta">
-          <p className="results-count" aria-hidden="true">
-            {countText}
-          </p>
+          {countText && (
+            <p className="results-count" aria-hidden="true">
+              {countText}
+            </p>
+          )}
           {canClear && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClear}>
               Clear filters

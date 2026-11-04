@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { Mail, MessageCircle, Phone } from "lucide-react";
 import logo from "@/app/assets/logo.png";
 import { SocialIcon } from "@/components/social-icon";
 import { contact, site, whatsappLink } from "@/lib/site";
@@ -12,7 +12,7 @@ import { contact, site, whatsappLink } from "@/lib/site";
 export function SiteFooter() {
   const year = new Date().getFullYear();
   const wa = whatsappLink();
-  const hasDirect = Boolean(contact.email || contact.phoneHref || wa || contact.address || site.social.length);
+  const hasDirect = Boolean(contact.email || contact.phoneHref || wa || site.social.length);
 
   return (
     <footer className="site-footer">
@@ -95,11 +95,6 @@ export function SiteFooter() {
                   </a>
                 </li>
               ))}
-              {contact.address && (
-                <li className="flex items-start gap-2 py-2">
-                  <MapPin aria-hidden className="mt-1 h-4 w-4 flex-none" /> {contact.address}
-                </li>
-              )}
             </ul>
           </div>
         )}

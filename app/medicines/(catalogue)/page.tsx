@@ -14,8 +14,6 @@ type Props = { searchParams: Promise<RawParams> };
  */
 const NOINDEX_PARAMS = ["q", "sort", "view", "show", "form", "avail", "strength"] as const;
 
-const products = (n: number) => `${n} product${n === 1 ? "" : "s"}`;
-
 /**
  * Landing pages: /medicines, /medicines?category=<slug> and
  * /medicines?molecule=<name> (the home A–Z and product pages link there). Each
@@ -53,13 +51,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     const items = (await getCatalogItems()).filter(
       (it) => it.molecule === mol.name && (!cat || it.category?.slug === cat.slug),
     );
-    const count = items.length;
     const forms = [...new Set(items.flatMap((it) => (it.form ? [it.form] : [])))].slice(0, 3);
     return {
       ...common,
-      title: cat ? `${mol.name} in ${cat.name} — ${products(count)}` : `${mol.name} — ${products(count)}`,
+      title: cat ? `${mol.name} in ${cat.name}` : mol.name,
       description: [
-        `${mol.name} from ${site.fullName}: ${products(count)}${cat ? ` in ${cat.name}` : ""}${
+        `${mol.name} from ${site.fullName}${cat ? ` in ${cat.name}` : ""}${
           forms.length ? ` (${forms.join(", ")})` : ""
         }.`,
         "Add any of them to one enquiry list for pricing, availability and documents.",
@@ -72,7 +69,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       title: cat.name,
       description: [
         cat.blurb,
-        `${cat.count} ${cat.name} products in the ${site.fullName} catalogue.`,
+        `${cat.name} from the ${site.fullName} catalogue.`,
         "Add any of them to one enquiry list for pricing, availability and documents.",
       ]
         .filter(Boolean)
@@ -82,7 +79,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   return {
     ...common,
     title: "Product catalogue",
-    description: `Browse ${summary.total} products across ${summary.categoryCount} categories and ${summary.moleculeCount} molecules. Add any product to one enquiry list for pricing, availability and documents.`,
+    description: `Browse the ${site.fullName} catalogue: ${site.catalogueSize} products available to order. Add any product to one enquiry list for pricing, availability and documents.`,
   };
 }
 

@@ -40,7 +40,10 @@ export default function AboutPage() {
               We supply businesses that are licensed to buy pharmaceuticals, never consumers. Browse the catalogue, add
               the products you need to one enquiry list and send it in one go.
             </p>
-            <p>Our export team replies with pricing, availability and the documents your market needs.</p>
+            <p>
+              Over {site.catalogueSize} products are available to order; the catalogue shows our most requested lines.
+              Our export team replies with pricing, availability and the documents your market needs.
+            </p>
             <Link href="/medicines" className="link-arrow">
               Browse products
               <ArrowRight aria-hidden strokeWidth={1.75} />

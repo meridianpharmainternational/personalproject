@@ -290,11 +290,10 @@ export function MedicineCatalog({
   // The search is the only active chip (no category or facet filters).
   const searchOnly = qText !== "" && activeFilterCount(filters) === 0;
   const emptyTitle = searchOnly ? `No products match “${qText}”.` : "No products match these filters.";
-  const countText = total === 0 ? "No products" : total === 1 ? "Showing 1 of 1" : `Showing 1–${shown} of ${total}`;
+  // No counts on the public site (owner's decision): the row only says when nothing matches.
+  const countText = total === 0 ? "No products" : "";
   const spoken =
-    total === 0
-      ? emptyTitle
-      : `${relaxed ? `Showing results for “${relaxed.query}”. ` : ""}Showing ${total === 1 ? "1" : `1 to ${shown}`} of ${total} product${total === 1 ? "" : "s"}.`;
+    total === 0 ? emptyTitle : `${relaxed ? `Showing results for “${relaxed.query}”. ` : ""}Results updated.`;
   const prevSpoken = useRef(spoken);
   useEffect(() => {
     if (prevSpoken.current === spoken) return;
@@ -560,7 +559,7 @@ export function MedicineCatalog({
           {remaining > 0 && (
             <div className="loadmore">
               <button type="button" className="btn btn-secondary btn-lg" onClick={loadMore}>
-                Show {Math.min(PAGE_SIZE, remaining)} more
+                Show more products
               </button>
             </div>
           )}

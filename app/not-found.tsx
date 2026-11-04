@@ -7,15 +7,13 @@ export const metadata: Metadata = {
   title: "Page not found",
 };
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
 /**
  * 404 for unknown URLs and removed products (notFound() in /medicines/[id]).
  * Non-strict read: with the catalogue unavailable it still offers the
  * catalogue and contact links, just without the category list.
  */
 export default async function NotFound() {
-  const { total, categories } = await getCatalogSummary();
+  const { categories } = await getCatalogSummary();
 
   return (
     <>
@@ -31,7 +29,7 @@ export default async function NotFound() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link className="btn btn-primary w-full sm:w-auto" href="/medicines">
-              {total > 0 ? `Browse all ${total} products` : "Browse the catalogue"}
+              Browse the catalogue
               <ArrowRight aria-hidden strokeWidth={1.75} className="icon-trail" />
             </Link>
             <Link className="btn btn-secondary w-full sm:w-auto" href="/contact">
@@ -52,7 +50,7 @@ export default async function NotFound() {
                 <li key={c.slug}>
                   <Link href={`/medicines?category=${encodeURIComponent(c.slug)}`} className="cat-card">
                     <span className="cat-card-name">{c.name}</span>
-                    {c.count > 0 && <span className="cat-card-meta">{plural(c.count, "product", "products")}</span>}
+                    {c.blurb && <span className="cat-card-meta">{c.blurb}</span>}
                   </Link>
                 </li>
               ))}

@@ -35,12 +35,12 @@ export function CatalogueHeading() {
 export function CatalogueSearch() {
   // correctedTo is optional here; without it no field help shows.
   const ctx: CatalogHeadContext & { correctedTo?: string | null } = useCatalogHead();
-  const { q, setQuery, flushUrl, category, categories, total, correctedTo } = ctx;
+  const { q, setQuery, flushUrl, category, categories, correctedTo } = ctx;
   const id = useId();
   const hintId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const cat = categories.find((c) => c.slug === category);
-  const scope = cat ? `${cat.name} (${cat.count} products)` : `all ${total} products`;
+  const scope = cat ? cat.name : "all products";
   // A lone letter filters nothing (see tokenize), so only a real query shows the live count.
   const searching = tokenize(q).length > 0;
 

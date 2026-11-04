@@ -21,8 +21,6 @@ const ROW_SELECTOR = "[data-row]";
 
 const UNAVAILABLE = "Search is temporarily unavailable.";
 
-const productCount = (n: number) => `${n} ${n === 1 ? "product" : "products"}`;
-
 /**
  * Product search used in two places:
  * - "popover": header search; results drop down in a panel (disclosure pattern,
@@ -324,7 +322,6 @@ export function ProductSearch({
                   onClick={done}
                 >
                   <span className="search-row-title">{m.name}</span>
-                  <span className="meta">{productCount(m.count)}</span>
                 </Link>
               ))}
             </div>
@@ -414,10 +411,7 @@ export function ProductSearch({
                         onKeyDown={onRowKey}
                         onClick={done}
                       >
-                        <span>
-                          See “{otherStrengths.q}” in other strengths ({otherStrengths.total}
-                          <span className="sr-only"> {otherStrengths.total === 1 ? "product" : "products"}</span>)
-                        </span>
+                        <span>See “{otherStrengths.q}” in other strengths</span>
                         <ArrowRight aria-hidden />
                       </Link>
                     )}
@@ -445,7 +439,6 @@ export function ProductSearch({
                       <span className="search-row-title">
                         <Highlight text={m.name} q={markQ} />
                       </span>
-                      <span className="meta">{productCount(m.count)}</span>
                     </Link>
                   ))}
                 </div>
@@ -466,7 +459,6 @@ export function ProductSearch({
                       onClick={done}
                     >
                       <span className="search-row-title">{c.name}</span>
-                      <span className="meta">{productCount(c.count)}</span>
                     </Link>
                   ))}
                 </div>
@@ -481,7 +473,7 @@ export function ProductSearch({
                     onKeyDown={onRowKey}
                     onClick={done}
                   >
-                    See all {results.total} {results.total === 1 ? "result" : "results"} for “{term}”
+                    See all results for “{term}”
                     <ArrowRight aria-hidden />
                   </Link>
                 </div>
@@ -515,10 +507,7 @@ function describeResults(r: SearchResult, term: string, other: { q: string; tota
   }
   // A corrected search says what it searched for, aloud too.
   const lead = r.correctedTo ? `Showing results for “${r.correctedTo}”. ` : "";
-  const products = productCount(r.total);
-  const m = r.molecules.length;
-  const molecules = m ? ` and ${m} ${m === 1 ? "molecule" : "molecules"}` : "";
-  return `${lead}${products}${molecules} ${r.total === 1 && !m ? "matches" : "match"}. Press Down arrow to move into the results.`;
+  return `${lead}Products match. Press Down arrow to move into the results.`;
 }
 
 function Highlight({ text, q }: { text: string; q: string }) {

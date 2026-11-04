@@ -11,11 +11,12 @@ export const site = {
     "Meridian Pharma International is a global pharmaceutical exporter. Build one enquiry list across our catalogue and our export team replies with pricing, availability and documentation.",
 
   // Contact details from the owner (2026-11-04); the same number is on WhatsApp.
-  // The owner gave the city only, so no street address is shown.
+  // No postal address, by the owner's decision.
   email: "meridianpharmainternational@gmail.com",
   phone: "+91 91850 81244",
   whatsapp: "+91 91850 81244", // digits only are used for wa.me links
-  address: "Nagpur, India",
+  /** Products available to order (owner's figure, 2026-11-04). The catalogue lists a selection. */
+  catalogueSize: "13,000+",
   /** Social channels: contact bar, footer, phone menu, Contact page and the hero. */
   social: [
     { name: "Telegram", handle: "@Meridianpharmainternational", href: "https://t.me/Meridianpharmainternational" },
@@ -38,9 +39,9 @@ export const site = {
   shipping: {
     /** Hero, Contact and About, word for word from the Divine site (owner's request, 2026-11-04). */
     us: "US-to-US overnight & 3-day delivery",
-    processing: "1–2 business days after payment confirmation",
-    standard: "10–15 business days",
-    express: "7–9 business days, with real-time tracking",
+    processing: "within 24 hours of payment",
+    standard: "9–10 days",
+    express: "6–7 days, with real-time tracking",
   },
   payments: [
     "Bank transfer",
@@ -74,7 +75,6 @@ const isPlaceholderPhone = (v: string) => {
   const d = v.replace(/\D/g, "");
   return d.length < 6 || /^0+$/.test(d);
 };
-const isPlaceholderText = (v: string) => !v.trim() || /^\s*todo\b/i.test(v);
 
 /** Real contact details only — each is null while it is still a placeholder. */
 export const contact = {
@@ -83,7 +83,6 @@ export const contact = {
   emailParts: isPlaceholderEmail(site.email) ? null : (site.email.split("@") as [string, string]),
   phone: isPlaceholderPhone(site.phone) ? null : site.phone,
   phoneHref: isPlaceholderPhone(site.phone) ? null : `tel:${site.phone.replace(/[^\d+]/g, "")}`,
-  address: isPlaceholderText(site.address) ? null : site.address,
 } as const;
 
 /**
