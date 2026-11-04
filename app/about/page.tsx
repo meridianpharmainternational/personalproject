@@ -73,7 +73,7 @@ export default function AboutPage() {
           <div className="max-w-3xl">
             <h2 id="about-shipping">Shipping and payment</h2>
             <p className="lead mt-2">
-              {site.exportReach.long} {site.exportReach.note}
+              {site.exportReach.long} {site.shipping.us}. {site.exportReach.note}
             </p>
             <table className="ledger mt-8">
               <caption className="sr-only">Shipping and payment</caption>

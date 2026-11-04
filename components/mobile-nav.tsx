@@ -5,17 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Mail, MessageCircle, Phone, X } from "lucide-react";
 import type { NavData } from "@/components/category-bar";
+import { SocialIcon } from "@/components/social-icon";
 import { useDialog } from "@/lib/use-dialog";
 import { contact, site, whatsappLink } from "@/lib/site";
 
 /** Full-height mobile menu: the categories, company links and contact. */
-export function MobileNav({
-  nav,
-  onClose,
-}: {
-  nav: NavData;
-  onClose: () => void;
-}) {
+export function MobileNav({ nav, onClose }: { nav: NavData; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
@@ -24,7 +19,7 @@ export function MobileNav({
   // query string here is safe and avoids a useSearchParams Suspense bailout.
   // Snapshot on mount: any category link closes the menu, so it can't go stale.
   const [category] = useState(() =>
-    typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("category") ?? "",
+    typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("category") ?? ""),
   );
   const onCatalogue = pathname === "/medicines";
   const activeCategory = onCatalogue ? category : null;
@@ -99,6 +94,17 @@ export function MobileNav({
                 <MessageCircle aria-hidden /> WhatsApp
               </a>
             )}
+            {site.social.map((s) => (
+              <a
+                key={s.name}
+                className="btn btn-secondary btn-block"
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <SocialIcon name={s.name} /> {s.name}
+              </a>
+            ))}
           </div>
           <div className="flex flex-wrap gap-2 px-5 pb-8">
             {site.certifications.map((c) => (

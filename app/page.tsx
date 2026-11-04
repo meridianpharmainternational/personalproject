@@ -1,11 +1,11 @@
 import { Fragment } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Phone, Truck } from "lucide-react";
 import { HeroChart } from "@/components/hero-chart";
 import { ProductCard } from "@/components/catalog/product-card";
 import { getCatalogItems, getCatalogSummary, varied } from "@/lib/catalog";
-import { site } from "@/lib/site";
+import { contact, site, whatsappLink } from "@/lib/site";
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -47,13 +47,21 @@ export default async function HomePage() {
     .filter((it): it is NonNullable<typeof it> => !!it);
   const featured = varied([...firstPerCategory, ...items], FEATURED_N);
 
+  // Quick ways to reach the desk, under the hero buttons.
+  const wa = whatsappLink();
+  const telegram = site.social.find((s) => s.name === "Telegram");
+  const reach: { label: string; href: string; external?: boolean }[] = [];
+  if (contact.phone && contact.phoneHref) reach.push({ label: contact.phone, href: contact.phoneHref });
+  if (wa) reach.push({ label: "WhatsApp", href: wa, external: true });
+  if (telegram) reach.push({ label: "Telegram", href: telegram.href, external: true });
+
   return (
     <>
       {/* ------------------------------------------------------------ HERO */}
       <section className="hero" aria-labelledby="home-title">
         <HeroChart />
         <div className="container-grid">
-          <div className="max-w-2xl">
+          <div className="hero-copy max-w-2xl">
             {/* Each certification stays whole, so a narrow screen breaks between them. */}
             <p className="kicker">
               {site.certifications.map((c, i) => (
@@ -64,15 +72,43 @@ export default async function HomePage() {
               ))}
             </p>
             <h1 id="home-title" className="text-display mt-5">
-              Global access to better health.
+              Global access to <span className="text-leaf-300">better health</span>.
             </h1>
             <p className="lead mt-6">
-              Licensed exporter of finished pharmaceutical formulations, with {site.exportReach.short}.
+              Licensed exporter of finished pharmaceutical formulations to importers and distributors worldwide.
             </p>
-            <Link className="btn btn-inverse btn-lg mt-8 w-full sm:w-auto" href="/medicines">
-              Browse products
-              <ArrowRight aria-hidden strokeWidth={1.75} className="icon-trail" />
-            </Link>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link className="btn btn-inverse btn-lg" href="/medicines">
+                Browse products
+                <ArrowRight aria-hidden strokeWidth={1.75} className="icon-trail" />
+              </Link>
+              <Link className="btn btn-enquire btn-lg" href="/contact">
+                Get a quote
+              </Link>
+            </div>
+            <ul className="hero-notes mt-8">
+              <li className="text-flow">
+                <Truck aria-hidden strokeWidth={1.75} />
+                <span>
+                  <b>{site.shipping.us}</b>, plus {site.exportReach.short}.
+                </span>
+              </li>
+              {reach.length > 0 && (
+                <li className="text-flow">
+                  <Phone aria-hidden strokeWidth={1.75} />
+                  <span>
+                    {reach.map((r, i) => (
+                      <Fragment key={r.label}>
+                        {i > 0 && " · "}
+                        <a href={r.href} {...(r.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+                          {r.label}
+                        </a>
+                      </Fragment>
+                    ))}
+                  </span>
+                </li>
+              )}
+            </ul>
           </div>
         </div>
       </section>

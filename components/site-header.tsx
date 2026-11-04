@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ClipboardList, Menu, Search, X } from "lucide-react";
+import { ContactBar } from "@/components/contact-bar";
 import { Logo } from "@/components/logo";
 import { ProductSearch } from "@/components/search/product-search";
 import { MobileNav } from "@/components/mobile-nav";
@@ -14,13 +15,7 @@ import { enquiryList, useEnquiryList } from "@/lib/enquiry-list";
 import { useDialog } from "@/lib/use-dialog";
 import { site } from "@/lib/site";
 
-export function SiteHeader({
-  nav,
-  popular,
-}: {
-  nav: NavData;
-  popular: { name: string; count: number }[];
-}) {
+export function SiteHeader({ nav, popular }: { nav: NavData; popular: { name: string; count: number }[] }) {
   const pathname = usePathname() ?? "";
   const { items, open: listOpen } = useEnquiryList();
   const n = items.length;
@@ -73,6 +68,7 @@ export function SiteHeader({
 
   return (
     <>
+      {!isStaffArea && <ContactBar />}
       <header className={`site-header${scrolled ? " is-scrolled" : ""}`}>
         {/* Page-change bar on the header’s bottom edge (useSearchParams, so it needs Suspense). */}
         <Suspense fallback={null}>
@@ -118,7 +114,11 @@ export function SiteHeader({
               >
                 <ClipboardList aria-hidden />
                 <span className="enq-btn-label">Enquiry list</span>
-                <span className={`count-badge${bumped ? " is-bumped" : ""}`} data-empty={n === 0 ? "" : undefined} aria-hidden>
+                <span
+                  className={`count-badge${bumped ? " is-bumped" : ""}`}
+                  data-empty={n === 0 ? "" : undefined}
+                  aria-hidden
+                >
                   {n}
                 </span>
               </button>
@@ -137,12 +137,7 @@ export function SiteHeader({
         </div>
       </header>
 
-      {menuOpen && (
-        <MobileNav
-          nav={nav}
-          onClose={() => setMenuOpen(false)}
-        />
-      )}
+      {menuOpen && <MobileNav nav={nav} onClose={() => setMenuOpen(false)} />}
       {sheetOpen && <SearchSheet total={nav.total} popular={popular} onClose={() => setSheetOpen(false)} />}
     </>
   );

@@ -10,11 +10,18 @@ export const site = {
   description:
     "Meridian Pharma International is a global pharmaceutical exporter. Build one enquiry list across our catalogue and our export team replies with pricing, availability and documentation.",
 
-  // TODO: replace with the client's real contact details (placeholders are hidden).
+  // Contact details from the owner (2026-11-04). Placeholders (email, address) stay hidden.
+  // TODO(content): email and postal address; confirm the number is on WhatsApp.
   email: "exports@meridianpharma.example",
-  phone: "+00 00000 00000",
-  whatsapp: "+000000000000", // digits only used for wa.me links
+  phone: "+91 91850 81244",
+  whatsapp: "+91 91850 81244", // digits only are used for wa.me links
   address: "TODO: Street, City, Country",
+  /** Social channels: contact bar, footer, phone menu, Contact page and the hero. */
+  social: [
+    { name: "Telegram", handle: "@Meridianpharmainternational", href: "https://t.me/Meridianpharmainternational" },
+    { name: "Instagram", handle: "@meridianpharma1", href: "https://www.instagram.com/meridianpharma1/" },
+    { name: "Facebook", handle: "Our Facebook page", href: "https://www.facebook.com/share/1DWyanL6zr/" },
+  ],
 
   /*
    * Export reach, shipping, payment and desk hours: the same terms as the Divine
@@ -23,12 +30,14 @@ export const site = {
    * Divine site doesn't state one).
    */
   exportReach: {
-    /** Footer, hero and About. */
+    /** Footer, hero, Contact and About. */
     short: "worldwide shipping to 50+ countries",
     long: "Worldwide shipping to 50+ countries across five continents.",
     note: "Shipping availability may vary based on product type, destination and regulatory restrictions.",
   },
   shipping: {
+    /** Hero, Contact and About, word for word from the Divine site (owner's request, 2026-11-04). */
+    us: "US-to-US overnight & 3-day delivery",
     processing: "1–2 business days after payment confirmation",
     standard: "10–15 business days",
     express: "7–9 business days, with real-time tracking",
@@ -60,8 +69,7 @@ export const site = {
   ],
 } as const;
 
-const isPlaceholderEmail = (v: string) =>
-  !v.trim() || /\.example$/i.test(v.trim()) || /todo/i.test(v);
+const isPlaceholderEmail = (v: string) => !v.trim() || /\.example$/i.test(v.trim()) || /todo/i.test(v);
 const isPlaceholderPhone = (v: string) => {
   const d = v.replace(/\D/g, "");
   return d.length < 6 || /^0+$/.test(d);

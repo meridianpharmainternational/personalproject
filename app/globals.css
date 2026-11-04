@@ -95,7 +95,7 @@
 .doc-list > li { display:grid; gap:.25rem; padding-block:1rem; border-bottom:1px solid var(--rule); }
 .doc-list-name { font-weight:600; color:var(--text-strong); }
 .doc-list-scope { color:var(--text-muted); }
-.surface-paper { background:var(--paper); border-block:1px solid var(--rule); }
+.surface-paper { background:var(--paper) linear-gradient(180deg, var(--paper), var(--navy-50)); border-block:1px solid var(--rule); }
 .surface-dark  { background:var(--navy-900); color:var(--on-dark-muted); --grid-line:rgba(255,255,255,.06); }
 :is(.surface-dark, .surface-ink, .hero, .site-footer) :is(h1,h2,h3,h4) { color:var(--on-dark); }
 .measure { max-width:68ch; }
@@ -113,18 +113,26 @@
 /* ----------------------------------------------------- background system */
 /* 1 · Meridian columns: a 1px rule at every column start, locked to .container-grid */
 /* 2 · Mercator latitude band: horizontal rules spaced by ln tan(45°+φ/2), converging on the bottom rule */
-.page-head { position:relative; background-color:var(--paper); border-bottom:1px solid var(--rule); padding-block:2rem 2.5rem; }
+.page-head { position:relative; background-color:var(--paper); border-bottom:1px solid var(--rule); padding-block:2rem 2.5rem;
+  background-image:linear-gradient(120deg, var(--navy-50) 0%, var(--paper) 45%, var(--leaf-50) 100%); }
 @media (min-width:1024px) { .page-head { padding-block:3rem 3.5rem; } }
 /* Phones: a compact head so the content starts sooner. Page utilities (the utilities layer) still win,
    e.g. /medicines' pt-4 pb-5, which match these values anyway. */
 @media (max-width:767.98px) { .page-head { padding-block:1rem 1.25rem; } }
-/* 3 · Hero: navy field + meridian columns + <HeroChart/> art */
+/* 3 · Hero: diagonal navy field, two glows that drift slowly (motion section) + <HeroChart/> art */
 .hero {
   position:relative; isolation:isolate; overflow:hidden; color:var(--on-dark-muted); --grid-line:rgba(255,255,255,.06);
   background-color:var(--navy-900);
-  background-image:linear-gradient(180deg, rgba(11,26,61,0) 35%, rgba(11,26,61,.9) 100%);
+  background-image:linear-gradient(180deg, rgba(7,18,43,0) 45%, rgba(7,18,43,.75) 100%),
+    linear-gradient(160deg, var(--navy-800) 0%, var(--navy-900) 45%, var(--navy-925) 100%);
   padding-block:3rem 4.5rem;
 }
+/* Soft radial glows, blue top-left and green bottom-right, under the art (z -1) and the copy. */
+.hero::before, .hero::after { content:""; position:absolute; z-index:-2; pointer-events:none; aspect-ratio:1; border-radius:50%; }
+.hero::before { top:-35%; left:-15%; width:60vw; min-width:28rem; max-width:56rem;
+  background:radial-gradient(closest-side, rgba(35,77,163,.6), rgba(35,77,163,0)); }
+.hero::after { right:-10%; bottom:-45%; width:55vw; min-width:24rem; max-width:50rem;
+  background:radial-gradient(closest-side, rgba(55,161,45,.3), rgba(55,161,45,0)); }
 @media (min-width:1024px) { .hero { padding-block:6rem 6.5rem; } }
 .hero-art { position:absolute; z-index:-1; pointer-events:none; color:#fff;
   top:0; bottom:0; right:max(0px, calc((100vw - var(--page-max)) / 2 - 5rem)); height:100%; width:auto; aspect-ratio:2 / 1; }
@@ -147,8 +155,13 @@
 /* 5 · Corner registration ticks (spec panels) */
 
 /* --------------------------------------------------------- hero pieces */
-@media (max-width:1023.98px) { /* 3 stats (Markets hidden): no empty 4th cell */
-}
+/* Notes under the buttons: the delivery promise and the quick ways to reach the desk. */
+.hero-notes { display:grid; gap:.75rem; max-width:40rem; padding:1rem 1.125rem; border:1px solid rgba(255,255,255,.14);
+  border-radius:var(--r-3); background:rgba(255,255,255,.06); }
+.hero-notes li { display:flex; align-items:flex-start; gap:.75rem; line-height:1.5; }
+.hero-notes svg { flex:none; width:20px; height:20px; margin-top:.2em; color:var(--leaf-300); }
+.hero-notes b { font-weight:600; color:#fff; }
+.hero-notes a { color:#fff; text-decoration:underline; text-decoration-color:rgba(255,255,255,.4); text-underline-offset:.2em; }
 
 /* ------------------------------------------------------ section header */
 /* A link-styled button inside running text ("Can’t find a product? Send us a request"). */
@@ -273,6 +286,19 @@
 .count-badge[data-empty] { display:none; }
 
 /* --------------------------------------------------------------- header */
+/* Contact bar (components/contact-bar.tsx): phone, WhatsApp and the social channels, on every public page. */
+.utility-bar { background:var(--navy-925); color:var(--on-dark-muted); border-bottom:1px solid var(--on-dark-rule); font-size:.875rem; }
+.utility-bar-inner { display:flex; align-items:center; min-height:44px; }
+.utility-link { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; min-height:44px; min-width:44px; padding:0 .625rem;
+  color:inherit; font-weight:500; text-decoration:none; white-space:nowrap; }
+.utility-link:first-child { padding-left:0; }
+.utility-link svg { width:18px; height:18px; flex:none; }
+.utility-hours { display:none; margin-left:auto; white-space:nowrap; color:var(--on-dark-subtle); }
+@media (min-width:1024px) { .utility-hours { display:inline; } }
+/* Phones: channel names become icons only (the labels stay for screen readers); under 360px the number too. */
+@media (max-width:639.98px) { .utility-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; } }
+@media (max-width:359.98px) { .utility-phone { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .utility-link:first-child { padding-left:.625rem; } }
 .site-header { position:sticky; top:0; z-index:50; background:var(--canvas); border-bottom:1px solid var(--rule); transition:box-shadow var(--dur-2) var(--ease-out); }
 /* Page-change bar along the header's bottom edge (components/navigation-progress.tsx). Its width is set
    inline as it creeps towards 90%; it runs to 100% and fades once the new page is showing. */
@@ -649,7 +675,7 @@ html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-p
    (bulk bar at bottom:80px + 60px + 12px). */
 
 /* ------------------------------------------------------------- footer */
-.site-footer { background:var(--ink-950); color:var(--on-dark-muted); --grid-line:rgba(255,255,255,.05); }
+.site-footer { background:var(--ink-950) linear-gradient(180deg, var(--navy-925), var(--ink-950) 45%); color:var(--on-dark-muted); --grid-line:rgba(255,255,255,.05); }
 .footer-heading { margin-bottom:.5rem; padding-bottom:.75rem; border-bottom:1px solid var(--on-dark-rule); font-family:var(--mono); font-size:.875rem; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--on-dark-subtle); }
 .footer-link { display:inline-flex; align-items:center; gap:.5rem; min-height:44px; color:var(--on-dark-muted); text-decoration:underline; text-decoration-color:transparent; }
 .footer-legal { border-top:1px solid var(--on-dark-rule); font-size:.875rem; color:var(--on-dark-subtle); }
@@ -669,7 +695,8 @@ html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-p
   .icon-btn-bare:hover { background:var(--paper); }
   .btn-danger:hover { background:var(--danger-50); }
   .btn-ghost:hover, .crumbs a:hover, .footer-link:hover { text-decoration-color:currentColor; }
-  .footer-link:hover { color:#fff; }
+  .footer-link:hover, .utility-link:hover { color:#fff; }
+  .hero-notes a:hover { text-decoration-color:currentColor; }
   .btn-inverse:hover { background:var(--navy-50); }
   .btn-outline-inverse:hover { background:rgba(255,255,255,.08); border-color:#fff; }
   .btn:hover .icon-trail, .link-arrow:hover svg { transform:translateX(3px); }
@@ -695,6 +722,13 @@ html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-p
   html { scroll-behavior:smooth; }
   .hero-art .ha-grid { animation:mr-fade-14 900ms var(--ease-out) both; }
   .hero-art .ha-prime { animation:mr-draw var(--dur-draw) var(--ease-out) 400ms both; }
+  .hero-copy > * { animation:mr-rise 560ms var(--ease-out) both; }
+  .hero-copy > :nth-child(2) { animation-delay:70ms; }
+  .hero-copy > :nth-child(3) { animation-delay:140ms; }
+  .hero-copy > :nth-child(4) { animation-delay:210ms; }
+  .hero-copy > :nth-child(5) { animation-delay:280ms; }
+  .hero::before { animation:mr-drift-a 28s var(--ease-in-out) infinite alternate; will-change:transform; }
+  .hero::after { animation:mr-drift-b 34s var(--ease-in-out) infinite alternate; will-change:transform; }
   .skeleton { animation:mr-pulse 1.2s var(--ease-in-out) infinite alternate; }
   .page-loading { animation:mr-fade 200ms var(--ease-out) 150ms both; }
 }
@@ -712,6 +746,8 @@ html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-p
 @keyframes mr-pop-icon { from { transform:scale(.4) rotate(-90deg); opacity:0 } to { transform:none; opacity:1 } }
 @keyframes mr-flash    { from { background-color:var(--leaf-50) } to { background-color:transparent } }
 @keyframes mr-draw     { from { stroke-dashoffset:1 } to { stroke-dashoffset:0 } }
+@keyframes mr-drift-a  { to { transform:translate3d(10%, 8%, 0) scale(1.15) } }
+@keyframes mr-drift-b  { to { transform:translate3d(-12%, -10%, 0) scale(1.1) } }
 @keyframes mr-pulse    { from { opacity:1 } to { opacity:.55 } }
 @keyframes mr-spin     { to { transform:rotate(360deg) } }
 
@@ -733,7 +769,8 @@ html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-p
 @media (forced-colors:active) {
   .btn, .chip, .badge, .count-badge, .pcard, .enq-btn, .toggle-chip { border:1px solid CanvasText; }
   .badge-code.is-match { outline:2px solid CanvasText; outline-offset:1px; }
-  .hero-art { display:none; }
+  .hero-art, .hero::before, .hero::after { display:none; }
+  .utility-bar { border-bottom:1px solid CanvasText; }
   .pcard::before { background:Highlight; }
   /* Selected states drawn with background, an SVG tick or box-shadow vanish when the system palette
      replaces backgrounds and drops shadows. Checkboxes and radios go back to the native control (system
