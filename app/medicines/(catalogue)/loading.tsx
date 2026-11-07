@@ -38,8 +38,14 @@ export default function MedicinesLoading() {
       <div aria-hidden="true" className="pointer-events-none select-none">
         <div className="page-head">
           <div className="container-grid lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:items-end lg:gap-x-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,36rem)]">
-            <div className="text-h2">
-              <span className="skeleton inline-block h-[0.8em] w-56 align-middle" />
+            <div className="min-w-0">
+              <div className="text-h2">
+                <span className="skeleton inline-block h-[0.8em] w-56 align-middle" />
+              </div>
+              {/* The landing page's intro line under the h1 (CatalogueHeading). */}
+              <div className="lead mt-3">
+                <span className="skeleton inline-block h-[0.8em] w-full max-w-md align-middle" />
+              </div>
             </div>
             <div className="skeleton mt-4 h-14 max-w-2xl lg:mt-0" />
           </div>

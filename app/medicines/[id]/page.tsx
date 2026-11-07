@@ -1,41 +1,46 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
-import {
-  getCatalogItems,
-  getMedicineById,
-  getRelated,
-  toCatalogItem,
-  type CatalogItem,
-} from "@/lib/catalog";
-import { site } from "@/lib/site";
+import { getCatalogItems, getMedicineById, getRelated, toCatalogItem, type CatalogItem } from "@/lib/catalog";
+import { abs, ogBase } from "@/lib/seo";
+import { BUSINESS_AUDIENCE, JsonLd, breadcrumbNode } from "@/lib/json-ld";
+import { productDescription, seoTitle, supplyDetails } from "@/lib/product-copy";
 import { keepTogether, moleculeLabel } from "@/lib/format";
-import type { MedicineWithCategory } from "@/types/db";
 import { ProductCard } from "@/components/catalog/product-card";
 import { ProductPurchase } from "@/components/catalog/product-purchase";
 import { BackToResults } from "@/components/catalog/back-to-results";
 
 type Props = { params: Promise<{ id: string }> };
 
+/*
+ * Prerendered at build and refreshed in the background every 5 minutes (the catalogue cache's
+ * own interval; an admin edit also refreshes the page at once through the catalog tag).
+ * Products added since the build render on their first request.
+ */
+export const revalidate = 300;
+export const dynamicParams = true;
+
+/** Every active product. Not strict: with the database unreachable at build time the pages simply render on demand. */
+export async function generateStaticParams(): Promise<{ id: string }[]> {
+  try {
+    return (await getCatalogItems()).map(({ id }) => ({ id }));
+  } catch {
+    return [];
+  }
+}
+
 /** One lookup per request, shared by generateMetadata and the page. */
 const getProduct = cache((id: string) => getMedicineById(id));
 
-function describe(m: MedicineWithCategory, strengths: string[]): string {
-  const what = [m.molecule, m.form, m.category?.name].filter(Boolean).join(" · ");
-  return [
-    `${m.name}${what ? ` — ${what}.` : "."}`,
-    strengths.length ? `Strengths: ${strengths.join(", ")}.` : null,
-    `Add it to your enquiry list for pricing, availability and documents from ${site.fullName}.`,
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
+/** Same path as app/sitemap.ts, so ?utm_… / ?ref= share links fold into one URL. */
+const productPath = (id: string) => `/medicines/${encodeURIComponent(id)}`;
 
 const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 
 /**
- * The product's <title>: its name, plus its form only when another active
+ * The product's name for the <title>: its name, plus its form only when another active
  * product shares the name, plus its first strength only when name and form
  * still collide ("IVERHEAL Tablets" / "IVERHEAL Cream", "BOLDENAN Injection
  * 250 mg/ml" / "BOLDENAN Injection 400 mg/ml"), so every product URL has its
@@ -55,20 +60,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const m = await getProduct(id);
   if (!m) return { title: "Product not found" };
   const item = toCatalogItem(m);
-  const description = describe(m, item.strengths);
-  const title = await productTitle(item);
-  // Same path as app/sitemap.ts, so ?utm_… / ?ref= share links fold into one URL.
-  const path = `/medicines/${encodeURIComponent(m.id)}`;
+  const title = seoTitle(await productTitle(item), moleculeLabel(m.molecule, item.ester), m.form);
+  const description = productDescription(m, item);
+  const path = productPath(m.id);
+  // The pack shot is the share image only when it is one: the cosmetics range has 190×110
+  // thumbnails that a share card would stretch into a blur, so those products (and the ones
+  // without a photo) keep the site card from ogBase.
+  const shareImage = item.image && !m.image_path?.startsWith("cosmetics/") ? item.image : null;
   return {
     title,
     description,
     alternates: { canonical: path },
     openGraph: {
+      ...ogBase,
       title,
       description,
       url: path,
-      type: "website",
-      ...(item.image ? { images: [{ url: item.image, alt: `${m.name} pack` }] } : {}),
+      ...(shareImage ? { images: [{ url: shareImage, alt: `${m.name} pack` }] } : {}),
     },
   };
 }
@@ -81,7 +89,10 @@ export default async function ProductPage({ params }: Props) {
   const item = toCatalogItem(m);
   const { sameMolecule, sameCategory } = await getRelated(m);
   const stock = item.availability === "in-stock";
+  const label = moleculeLabel(m.molecule, item.ester);
   const categoryHref = m.category ? `/medicines?category=${encodeURIComponent(m.category.slug)}` : null;
+  // The stored molecule, spelt as the catalogue's canonical for that landing page spells it.
+  const moleculeHref = m.molecule ? `/medicines?molecule=${encodeURIComponent(m.molecule)}` : null;
 
   // MOQ ("On request") and availability (flagged only when made to order) are left out.
   const specs: [string, string | null][] = [
@@ -96,31 +107,48 @@ export default async function ProductPage({ params }: Props) {
     .split(/\r?\n\s*\r?\n/)
     .map((p) => p.trim())
     .filter(Boolean);
+  const supply = supplyDetails(m, item);
 
   // One related row: the same molecule first, then the same category.
-  const related = [...sameMolecule, ...sameCategory.filter((x) => !sameMolecule.some((y) => y.id === x.id))].slice(0, 4);
+  const related = [...sameMolecule, ...sameCategory.filter((x) => !sameMolecule.some((y) => y.id === x.id))].slice(
+    0,
+    4,
+  );
 
-  const jsonLd = {
-    "@context": "https://schema.org",
+  /*
+   * A plain Product: no offers or prices (the owner publishes none), no brand or manufacturer
+   * (not recorded), no Drug typing (its fields invite medical claims the page does not make).
+   * The other brands of the same molecule are linked as isSimilarTo.
+   */
+  const productUrl = abs(productPath(m.id));
+  const product = {
     "@type": "Product",
+    "@id": `${productUrl}#product`,
+    url: productUrl,
     name: m.name,
     // A description that is only the ester word is already in the lead ("Testosterone Cypionate").
-    description: (item.ester ? "" : paragraphs.join(" ")) || describe(m, item.strengths),
-    ...(item.image ? { image: item.image } : {}),
+    description: (item.ester ? "" : paragraphs.join(" ")) || supply,
+    ...(item.image ? { image: [abs(item.image)] } : {}),
     ...(m.category ? { category: m.category.name } : {}),
+    audience: BUSINESS_AUDIENCE,
     additionalProperty: [
       m.molecule && { "@type": "PropertyValue", name: "Active ingredient", value: m.molecule },
       m.form && { "@type": "PropertyValue", name: "Dosage form", value: m.form },
       item.strengths.length && { "@type": "PropertyValue", name: "Strengths", value: item.strengths.join(", ") },
     ].filter(Boolean),
+    ...(sameMolecule.length
+      ? { isSimilarTo: sameMolecule.map((x) => ({ "@type": "Product", name: x.name, url: abs(productPath(x.id)) })) }
+      : {}),
   };
+  const breadcrumb = breadcrumbNode([
+    { name: "Products", path: "/medicines" },
+    ...(m.category && categoryHref ? [{ name: m.category.name, path: categoryHref }] : []),
+    { name: m.name },
+  ]);
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
-      />
+      <JsonLd nodes={[product, breadcrumb]} />
 
       <section className="container-grid py-6 lg:pb-16 lg:pt-8" aria-labelledby="pdp-title">
         <BackToResults
@@ -136,7 +164,14 @@ export default async function ProductPage({ params }: Props) {
           <div className="pdp-media col-span-full max-md:aspect-[16/10] max-md:max-h-[40svh] md:sticky md:top-[calc(var(--header-h)+1.5rem)] md:col-span-3 lg:col-span-5">
             {item.image ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={item.image} alt={`${m.name} pack`} width={800} height={800} decoding="async" fetchPriority="high" />
+              <img
+                src={item.image}
+                alt={`${m.name} pack`}
+                width={800}
+                height={800}
+                decoding="async"
+                fetchPriority="high"
+              />
             ) : (
               <div className="absolute inset-0 flex flex-col justify-end gap-2 p-6 lg:p-8" aria-hidden="true">
                 <span className="kicker">{m.form ?? "Product"}</span>
@@ -151,7 +186,17 @@ export default async function ProductPage({ params }: Props) {
             <h1 id="pdp-title" className="break-words">
               {m.name}
             </h1>
-            {m.molecule && <p className="lead mt-3">{moleculeLabel(m.molecule, item.ester)}</p>}
+            {/* The molecule's landing page lists the other brands of the same salt; a quiet link, as this is the lead line. */}
+            {label && moleculeHref && (
+              <p className="lead mt-1">
+                <Link
+                  href={moleculeHref}
+                  className="inline-flex min-h-tap items-center underline decoration-transparent hover:decoration-current"
+                >
+                  {label}
+                </Link>
+              </p>
+            )}
             {!stock && (
               <p className="mt-4">
                 <span className="badge badge-mto">Made to order</span>
@@ -171,6 +216,8 @@ export default async function ProductPage({ params }: Props) {
                   ))}
               </tbody>
             </table>
+
+            <p className="measure mt-6">{supply}</p>
 
             <ProductPurchase key={item.id} product={item} />
 

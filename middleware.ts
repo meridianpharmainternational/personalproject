@@ -11,12 +11,12 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Run on every request EXCEPT static assets, so the session refreshes on
-     * every navigable request:
+     * Run on every request EXCEPT static assets and crawler files, so the
+     * session refreshes on every navigable request:
      *   - _next/static, _next/image  (build output)
-     *   - favicon.ico
+     *   - favicon.ico, sitemap.xml, robots.txt and the web manifest
      *   - common static file extensions
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|woff2?)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|webmanifest|woff2?)$).*)",
   ],
 };

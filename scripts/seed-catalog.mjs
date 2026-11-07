@@ -54,6 +54,8 @@ const supabase = createClient(URL, KEY, {
 });
 
 // --- category display config (reference slug -> Meridian category) --------
+// `slug` is the Meridian URL slug where it differs from the reference slug: the
+// hormone ranges are listed as Injectables / Oral Therapies and their URLs say so.
 const CATS = {
   "ed-medicines": { name: "ED Medicines", blurb: "Men's health — erectile-dysfunction formulations.", sort: 10, controlled: false },
   "anti-parasitic": { name: "Anti-Parasitic", blurb: "Anthelmintic (deworming) and antiparasitic agents.", sort: 20, controlled: false },
@@ -61,8 +63,8 @@ const CATS = {
   "sleeping-pills": { name: "Sleeping Aids", blurb: "Insomnia and sleep-support medicines.", sort: 40, controlled: true },
   "sleep-alert": { name: "Wakefulness", blurb: "Wakefulness-promoting nootropics.", sort: 50, controlled: true },
   "hair-loss": { name: "Hair Care", blurb: "Hair-regrowth and anti-hair-loss range.", sort: 60, controlled: false },
-  "steroid-injections": { name: "Injectables", blurb: "Injectable anabolic and hormone preparations.", sort: 70, controlled: true },
-  "steroid-tablets": { name: "Oral Therapies", blurb: "Oral anabolic and hormone therapies.", sort: 80, controlled: true },
+  "steroid-injections": { slug: "injectables", name: "Injectables", blurb: "Injectable anabolic and hormone preparations.", sort: 70, controlled: true },
+  "steroid-tablets": { slug: "oral-therapies", name: "Oral Therapies", blurb: "Oral anabolic and hormone therapies.", sort: 80, controlled: true },
 };
 const OLD_PLACEHOLDER_SLUGS = [
   "general", "antibiotics", "pain-relief", "cardiovascular", "diabetes",
@@ -196,13 +198,15 @@ async function main() {
   console.log(`✓ Bucket ready`);
 
   // 2. categories
-  const catRows = Object.entries(CATS).map(([slug, c]) => ({
-    slug, name: c.name, blurb: c.blurb, sort_order: c.sort,
+  const catRows = Object.entries(CATS).map(([ref, c]) => ({
+    slug: c.slug ?? ref, name: c.name, blurb: c.blurb, sort_order: c.sort,
   }));
   const { data: cats, error: catErr } = await supabase
     .from("categories").upsert(catRows, { onConflict: "slug" }).select("id, slug");
   if (catErr) { console.error(`✗ categories: ${catErr.message}`); process.exit(1); }
-  const catId = Object.fromEntries(cats.map((c) => [c.slug, c.id]));
+  const idBySlug = Object.fromEntries(cats.map((c) => [c.slug, c.id]));
+  // Keyed by the REFERENCE slug, which is what each source product carries.
+  const catId = Object.fromEntries(Object.entries(CATS).map(([ref, c]) => [ref, idBySlug[c.slug ?? ref]]));
   console.log(`✓ Upserted ${cats.length} categories`);
 
   // 3. build medicine rows (one per brand) + collect image jobs

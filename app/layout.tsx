@@ -11,6 +11,8 @@ import { EnquiryToast } from "@/components/enquiry/enquiry-toast";
 import { LiveRegion } from "@/components/live-region";
 import { RevealObserver } from "@/components/reveal-observer";
 import { getCatalogSummary } from "@/lib/catalog";
+import { JsonLd, organizationNode, webSiteNode } from "@/lib/json-ld";
+import { ogBase } from "@/lib/seo";
 import { site, siteUrl } from "@/lib/site";
 
 // Self-hosted (app/fonts, SIL Open Font License) so builds and deploys never
@@ -38,7 +40,10 @@ const mono = localFont({
   ],
   variable: "--font-mono",
   display: "swap",
-  preload: false,
+  preload: true,
+  // No synthesized fallback: the Arial-based one is scaled to about 131% and re-wraps the strength
+  // chips when the real font lands (CLS 0.057). The plain monospace stack keeps the lines in place.
+  adjustFontFallback: false,
   fallback: ["ui-monospace", "Menlo", "Consolas", "monospace"],
 });
 
@@ -46,10 +51,13 @@ export const metadata: Metadata = {
   // Shared with app/sitemap.ts and app/robots.ts so every absolute URL uses one origin.
   metadataBase: siteUrl,
   title: {
-    default: `${site.fullName} — ${site.tagline}`,
-    template: `%s · ${site.name}`,
+    default: `${site.fullName} — Pharmaceutical Exporter & Supplier`,
+    template: `%s · ${site.fullName}`,
   },
   description: site.description,
+  // No canonical or og:url here: each page sets its own through pageMeta, and Next replaces a
+  // page's openGraph instead of merging it, so these defaults only reach pages that set none.
+  openGraph: ogBase,
 };
 
 export const viewport: Viewport = {
@@ -93,6 +101,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <EnquiryToast />
         <LiveRegion />
         <RevealObserver />
+        {/* The company and the site, once per page; product pages add their own nodes and point at ORG_ID. */}
+        <JsonLd nodes={[organizationNode(summary.categories.map((c) => c.name)), webSiteNode()]} />
       </body>
     </html>
   );

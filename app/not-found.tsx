@@ -5,6 +5,8 @@ import { getCatalogSummary } from "@/lib/catalog";
 
 export const metadata: Metadata = {
   title: "Page not found",
+  // Nothing to index on a 404, but its catalogue and contact links are worth following.
+  robots: { index: false, follow: true },
 };
 
 /**

@@ -3,26 +3,38 @@
 import { useId, useRef } from "react";
 import { Search, X } from "lucide-react";
 import { useCatalogHead, type CatalogHeadContext } from "@/components/catalog/catalog-context";
+import { categoryCopy, moleculeIntro } from "@/lib/category-copy";
 import { tokenize } from "@/lib/search-text";
 
 /** id of the catalogue <h1>. */
 export const CATALOGUE_TITLE_ID = "catalogue-title";
 
-/** The molecule fields are optional here, so without them the title falls back to the category or catalogue. */
-type HeadingContext = CatalogHeadContext & { molecule?: string[]; moleculeScope?: unknown };
-
 /**
  * The catalogue's <h1>: the selected molecule (exactly one), else the category,
- * else "Products". A client island so it follows filter changes made in place.
+ * else "Products" — and under it the landing page's intro: the molecule's forms
+ * and brands (the products its MoleculeScope covers), or the category's copy
+ * (lib/category-copy, else its blurb); nothing for the bare catalogue. A client
+ * island so it follows filter changes made in place. loading.tsx mirrors both
+ * lines; keep them in step.
  */
 export function CatalogueHeading() {
-  const ctx: HeadingContext = useCatalogHead();
+  const ctx = useCatalogHead();
   const cat = ctx.categories.find((c) => c.slug === ctx.category);
-  const mol = ctx.molecule?.length === 1 && ctx.moleculeScope ? ctx.molecule[0] : undefined;
+  const scope = ctx.molecule.length === 1 ? ctx.moleculeScope : null;
+  const mol = scope ? ctx.molecule[0] : undefined;
+  const intro =
+    mol && scope
+      ? moleculeIntro(mol, scope.forms, scope.brands)
+      : cat
+        ? (categoryCopy(cat.slug)?.intro ?? cat.blurb)
+        : null;
   return (
-    <h1 id={CATALOGUE_TITLE_ID} tabIndex={-1} className="break-words text-h2">
-      {mol ?? cat?.name ?? "Products"}
-    </h1>
+    <>
+      <h1 id={CATALOGUE_TITLE_ID} tabIndex={-1} className="break-words text-h2">
+        {mol ?? cat?.name ?? "Products"}
+      </h1>
+      {intro && <p className="lead mt-3">{intro}</p>}
+    </>
   );
 }
 

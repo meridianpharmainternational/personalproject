@@ -296,8 +296,8 @@ const CATEGORY_TERMS = new Map<string, string>([
   ["sleeping-pills", "sleeping pills"],
   ["sleep-alert", "nootropics"],
   ["hair-loss", "hair loss"],
-  ["steroid-injections", "steroids anabolic"],
-  ["steroid-tablets", "steroids anabolic"],
+  ["injectables", "steroids anabolic"],
+  ["oral-therapies", "steroids anabolic"],
 ]);
 
 /** Extra search words for a category (see CATEGORY_TERMS); "" for none. */

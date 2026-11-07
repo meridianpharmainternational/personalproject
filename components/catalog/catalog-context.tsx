@@ -5,15 +5,18 @@ import type { CategoryLite } from "@/components/catalog/catalog-model";
 
 /**
  * With exactly one molecule selected: its products within the active category
- * (if any), counted as generateMetadata counts them for the landing page's
- * <title>, so the head and the <title> agree.
+ * (if any), scoped as generateMetadata (app/medicines/(catalogue)/page.tsx)
+ * scopes them, so the h1's intro, the tab title and the <title> describe the
+ * same products.
  */
 export type MoleculeScope = {
   count: number;
   /** Categories the molecule's products span. */
   categoryCount: number;
-  /** Distinct dosage forms, in catalogue order. */
+  /** Distinct dosage forms, in catalogue order (the first one names the title). */
   forms: string[];
+  /** Distinct product names, in catalogue order (moleculeIntro names the first four). */
+  brands: string[];
 };
 
 /**
@@ -30,7 +33,7 @@ export type CatalogHeadContext = {
   molecule: string[];
   /**
    * With exactly one molecule selected: its products within the active
-   * category (if any), counted as generateMetadata counts them; null otherwise.
+   * category (if any), scoped as generateMetadata scopes them; null otherwise.
    */
   moleculeScope: MoleculeScope | null;
   q: string;

@@ -8,6 +8,7 @@ import { enquiryList } from "@/lib/enquiry-list";
 import { customId } from "@/lib/enquiry-actions";
 import { announce } from "@/lib/ui-store";
 import { site } from "@/lib/site";
+import { categoryCopy, moleculeTitle } from "@/lib/category-copy";
 import { didYouMean, relaxTokens, relevanceScore } from "@/lib/search-text";
 import { openPasteList } from "@/components/enquiry/enquiry-drawer";
 import { OpenEnquiryButton } from "@/components/enquiry/open-enquiry-button";
@@ -249,7 +250,7 @@ export function MedicineCatalog({
 
   // With exactly one molecule selected: its products within the active category,
   // filtered as generateMetadata (app/medicines/(catalogue)/page.tsx) does, so the head's
-  // counts match the <title>.
+  // intro and the tab title describe the same products as the <title>.
   const molName = filters.molecule.length === 1 ? filters.molecule[0] : "";
   const moleculeScope = useMemo(() => {
     if (!molName) return null;
@@ -260,28 +261,28 @@ export function MedicineCatalog({
       count: hits.length,
       categoryCount: new Set(hits.flatMap((it) => (it.category ? [it.category.slug] : []))).size,
       forms: [...new Set(hits.flatMap((it) => (it.form ? [it.form] : [])))],
+      brands: [...new Set(hits.map((it) => it.name))],
     };
   }, [items, molName, filters.category]);
 
   // Keep the tab title in step when the category or molecule changes in place
   // (the server title from generateMetadata covers the first paint and link
-  // navigations).
+  // navigations). The same page-part titles as generateMetadata, never a count;
+  // keep the two in step.
   const titleSynced = useRef(false);
   useEffect(() => {
     if (!titleSynced.current) {
       titleSynced.current = true;
       return;
     }
-    const cat = categories.find((c) => c.slug === filters.category)?.name;
-    const n = moleculeScope?.count ?? 0;
-    const products = `${n} product${n === 1 ? "" : "s"}`;
+    const cat = categories.find((c) => c.slug === filters.category);
     const base =
       molName && moleculeScope
-        ? cat
-          ? `${molName} in ${cat} — ${products}`
-          : `${molName} — ${products}`
-        : (cat ?? "Product catalogue");
-    document.title = `${base} · ${site.name}`;
+        ? moleculeTitle(molName, moleculeScope.forms[0])
+        : cat
+          ? (categoryCopy(cat.slug)?.title ?? `${cat.name} Exporter & Supplier`)
+          : "Pharmaceutical Export Catalogue";
+    document.title = `${base} · ${site.fullName}`;
   }, [filters.category, molName, moleculeScope, categories]);
 
   /* ------------------------------------------- count + announcements */
@@ -558,9 +559,20 @@ export function MedicineCatalog({
 
           {remaining > 0 && (
             <div className="loadmore">
-              <button type="button" className="btn btn-secondary btn-lg" onClick={loadMore}>
+              {/* A real link to the next page (crawlers, no JavaScript, open in a new tab), paged
+                  in place on a plain click so the URL still follows through writeUrl. */}
+              <Link
+                href={`/medicines${buildSearch(spStr, { filters, sort, view, show: shown + PAGE_SIZE })}`}
+                prefetch={false}
+                className="btn btn-secondary btn-lg"
+                onClick={(e) => {
+                  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  e.preventDefault();
+                  loadMore();
+                }}
+              >
                 Show more products
-              </button>
+              </Link>
             </div>
           )}
 

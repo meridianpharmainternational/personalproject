@@ -51,14 +51,15 @@ Scripts: `npm run dev` · `npm run build` · `npm run start` · `npm run typeche
 
 ## Environment variables
 
-| Variable | Required | Notes |
-| --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | yes | Project URL (browser + server). |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Anon key (browser + server). |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | **Server-only.** Enquiry inserts + admin writes/uploads. |
-| `RESEND_API_KEY` | optional | Enables enquiry email notifications. |
-| `ENQUIRY_NOTIFY_EMAIL` | optional | Where notifications are sent. |
-| `ENQUIRY_FROM_EMAIL` | optional | Verified "from" address (defaults to Resend sandbox). |
+| Variable                        | Required | Notes                                                                                                                                                                                                                         |
+| ------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | yes      | Project URL (browser + server).                                                                                                                                                                                               |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes      | Anon key (browser + server).                                                                                                                                                                                                  |
+| `SUPABASE_SERVICE_ROLE_KEY`     | yes      | **Server-only.** Enquiry inserts + admin writes/uploads.                                                                                                                                                                      |
+| `RESEND_API_KEY`                | optional | Enables enquiry email notifications.                                                                                                                                                                                          |
+| `ENQUIRY_NOTIFY_EMAIL`          | optional | Where notifications are sent.                                                                                                                                                                                                 |
+| `ENQUIRY_FROM_EMAIL`            | optional | Verified "from" address (defaults to Resend sandbox).                                                                                                                                                                         |
+| `NEXT_PUBLIC_SITE_URL`          | optional | Public origin for canonical, sitemap, robots and share URLs. Committed in [.env.production](.env.production) as `https://www.meridiannpharmainternational.com` (www is the canonical host); a platform variable overrides it. |
 
 Without the Resend vars, enquiries still save and appear in the admin inbox —
 email is just skipped.
@@ -73,19 +74,30 @@ email is just skipped.
   several database round trips; from Vercel's default region (Washington DC)
   each one crosses the Pacific. If the Supabase project ever moves, change the
   region to match.
-- Set **Settings → Git → Production Branch** to `prod`.
+- Set the production branch to `production` (**Settings → Environments → Production → Branch Tracking**, or **Settings → Git → Production Branch** on older dashboards).
+- **Domain:** add both `meridiannpharmainternational.com` and
+  `www.meridiannpharmainternational.com` under **Settings → Domains**, with the
+  apex set to redirect to `www` (the canonical host; `next.config.ts` repeats
+  that redirect for a self-hosted deploy). Set `NEXT_PUBLIC_SITE_URL` to
+  `https://www.meridiannpharmainternational.com` for Production. At the
+  registrar (GoDaddy), change only the A/CNAME records Vercel asks for and keep
+  any mail (MX/TXT) records in place. Then check
+  `/robots.txt`, `/sitemap.xml` and a product page's canonical `<link>` on the
+  live host.
 
 ---
 
 ## How it works
 
 ### Public site
+
 - **/** — home: hero, categories, featured medicines, how-it-works.
 - **/medicines** — searchable, category-filterable catalog (active medicines).
 - **/medicines/[id]** — medicine detail + "Enquire" button.
 - **/about**, **/contact** (enquiry form + details), **/terms**, **/privacy**, **/disclaimer**.
 
 ### Enquiries
+
 Every "Enquire" button and the contact form submit through one Server Action
 ([lib/actions/enquiry.ts](lib/actions/enquiry.ts)): it validates with Zod, inserts
 the row via the **service-role** client (so the `enquiries` table is never
@@ -93,12 +105,14 @@ publicly writable), then fires an optional email notification. Enquiries appear
 in **/admin/enquiries**, where you can mark them read / archived / delete.
 
 ### Admin panel (`/admin`, login required)
+
 - **Dashboard** — counts (medicines, enquiries, new enquiries).
 - **Medicines** — add / edit / remove, including image upload to the public
   `medicine-images` bucket, active/hidden toggle, category, strengths, pack, etc.
 - **Enquiries** — the inbox.
 
 ### Access control (three layers)
+
 1. **Middleware** ([middleware.ts](middleware.ts) → [lib/supabase/middleware.ts](lib/supabase/middleware.ts))
    refreshes the session and sends signed-out visitors of `/admin/**` to `/login`;
    everything else is public. The JWT is verified locally (`getClaims()`).

@@ -3,12 +3,14 @@ import type { ReactNode } from "react";
 import { Clock, CreditCard, Mail, MessageCircle, Phone, Truck } from "lucide-react";
 import { EnquiryForm } from "@/components/enquiry/enquiry-form";
 import { SocialIcon } from "@/components/social-icon";
+import { pageMeta } from "@/lib/seo";
 import { contact, site, whatsappLink } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Contact",
-  description: `Contact the ${site.fullName} export desk for pricing, availability and documentation.`,
-};
+export const metadata: Metadata = pageMeta(
+  "/contact",
+  "Contact the export desk",
+  `Contact the ${site.fullName} export desk for pricing, availability and documentation.`,
+);
 
 export default function ContactPage() {
   const wa = whatsappLink();

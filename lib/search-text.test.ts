@@ -198,7 +198,7 @@ describe("categoryTerms", () => {
   /** A product haystack as buildUniverse() / prepare() build it, category words included. */
   const hay = (name: string, molecule: string, category: string, slug: string) =>
     norm([name, molecule, "Injection", "250 mg/ml", category, categoryTerms(slug)].join(" "));
-  const testE = hay("TEST-E", "Testosterone", "Injectables", "steroid-injections");
+  const testE = hay("TEST-E", "Testosterone", "Injectables", "injectables");
 
   it("finds a whole category by the words buyers use for it", () => {
     for (const q of ["steroid", "steroids", "anabolic", "anabolic steroids"]) {

@@ -1,12 +1,11 @@
 /**
- * Build the public URL for an image stored in the public `medicine-images`
- * bucket. Works on both server and client (uses the NEXT_PUBLIC_ base URL).
+ * Site-relative URL of an image in the public `medicine-images` bucket, served by
+ * app/images/products/[...path]/route.ts from this origin so crawlers index the photo with
+ * its product and the CDN caches it (the bucket itself answers with x-robots-tag: none and a
+ * private cache). Works on both server and client; absolute URLs (sitemap, JSON-LD) are
+ * built from it with abs() in lib/seo.
  */
-export function medicineImageUrl(
-  imagePath: string | null | undefined,
-): string | null {
+export function medicineImageUrl(imagePath: string | null | undefined): string | null {
   if (!imagePath) return null;
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!base) return null;
-  return `${base}/storage/v1/object/public/medicine-images/${imagePath}`;
+  return `/images/products/${imagePath}`;
 }

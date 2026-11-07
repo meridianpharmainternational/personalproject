@@ -27,6 +27,19 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // www is the canonical host (PRODUCTION_URL in lib/site.ts). On Vercel the
+  // domain-level redirect answers first; this one covers a self-hosted deploy
+  // where both hosts reach the app, so the apex never serves a second copy.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "meridiannpharmainternational.com" }],
+        destination: "https://www.meridiannpharmainternational.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   eslint: {
     // Keep production builds green even if lint rules churn across versions.
     // `npm run lint` still runs ESLint on demand. Flip to `false` to enforce

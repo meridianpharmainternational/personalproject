@@ -734,8 +734,11 @@ html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-p
   .hero-copy > :nth-child(3) { animation-delay:140ms; }
   .hero-copy > :nth-child(4) { animation-delay:210ms; }
   .hero-copy > :nth-child(5) { animation-delay:280ms; }
-  .hero::before { animation:mr-drift-a 28s var(--ease-in-out) infinite alternate; will-change:transform; }
-  .hero::after { animation:mr-drift-b 34s var(--ease-in-out) infinite alternate; will-change:transform; }
+  /* The glows drift only on wide pointer screens: on a phone the endless transform keeps a compositor layer busy for the whole visit. */
+  @media (min-width:1024px) and (hover:hover) {
+    .hero::before { animation:mr-drift-a 28s var(--ease-in-out) infinite alternate; }
+    .hero::after { animation:mr-drift-b 34s var(--ease-in-out) infinite alternate; }
+  }
   .skeleton { animation:mr-pulse 1.2s var(--ease-in-out) infinite alternate; }
   .page-loading { animation:mr-fade 200ms var(--ease-out) 150ms both; }
 }

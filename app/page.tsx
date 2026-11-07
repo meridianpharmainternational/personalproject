@@ -6,6 +6,7 @@ import { HeroChart } from "@/components/hero-chart";
 import { BrandMark } from "@/components/social-icon";
 import { ProductCard } from "@/components/catalog/product-card";
 import { getCatalogItems, getCatalogSummary, varied } from "@/lib/catalog";
+import { ogBase } from "@/lib/seo";
 import { contact, site, whatsappLink } from "@/lib/site";
 
 /** Products shown under "Featured products": one per molecule, mixed across categories. */
@@ -22,8 +23,14 @@ const STEPS = [
 
 /* ----------------------------------------------------------------- metadata */
 
-const description = `${site.fullName} exports finished pharmaceutical formulations, with ${site.catalogueSize} products available to order. Build one enquiry list and receive pricing, availability and documentation in a single reply.`;
-export const metadata: Metadata = { description, openGraph: { description } };
+const description = `Pharmaceutical exporter to licensed importers and distributors in 50+ countries: ${site.catalogueSize} products, ED medicines to aesthetics. One enquiry, one quotation.`;
+export const metadata: Metadata = {
+  // Absolute: the home page carries the full name itself instead of the "%s · name" template.
+  title: { absolute: `${site.fullName} — Pharmaceutical Exporter & Supplier` },
+  description,
+  alternates: { canonical: "/" },
+  openGraph: { ...ogBase, url: "/" },
+};
 
 /* --------------------------------------------------------------------- page */
 

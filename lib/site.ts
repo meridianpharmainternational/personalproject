@@ -3,6 +3,12 @@
  * client's real details (TODO markers). Placeholder values are detected below
  * and HIDDEN from the public site rather than shown as fake contact data.
  */
+/**
+ * The live site. NEXT_PUBLIC_SITE_URL overrides it (see resolveSiteUrl). www is the canonical
+ * host; the apex redirects to it (next.config.ts and the Vercel domain settings).
+ */
+export const PRODUCTION_URL = "https://www.meridiannpharmainternational.com";
+
 export const site = {
   name: "Meridian",
   fullName: "Meridian Pharma International",
@@ -56,6 +62,22 @@ export const site = {
   ],
   deskHours: "Monday to Saturday, 9:00–18:00",
 
+  /*
+   * Company identity for the About page and structured data: legal name, year established,
+   * country, importer-exporter code, drug licence and GST numbers. Every field is optional; an
+   * empty field is hidden, so nothing invented ever ships.
+   * TODO(content): fill in from the owner's registration documents.
+   */
+  company: {
+    legalName: "",
+    established: "",
+    country: "",
+    iec: "",
+    drugLicence: "",
+    drugLicenceAuthority: "",
+    gstin: "",
+  },
+
   certifications: ["WHO-GMP", "ISO 9001:2015", "GDP Compliant"],
 
   nav: [
@@ -90,7 +112,8 @@ export const contact = {
  * NEXT_PUBLIC_SITE_URL wins (set it to the live domain). On Vercel, the
  * production domain is used, even on preview builds, so canonicals always point
  * at production. Values without a scheme get https://. A malformed value is
- * skipped rather than failing the build.
+ * skipped rather than failing the build. A production build with neither value
+ * falls back to PRODUCTION_URL (never localhost), with a warning.
  */
 function resolveSiteUrl(): URL {
   const candidates = [process.env.NEXT_PUBLIC_SITE_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL];
@@ -102,6 +125,12 @@ function resolveSiteUrl(): URL {
     } catch {
       // Not a valid URL; fall through to the next source.
     }
+  }
+  if (process.env.NODE_ENV === "production") {
+    console.warn(
+      "[site] NEXT_PUBLIC_SITE_URL is not set; using " + PRODUCTION_URL + " for canonical, sitemap and share URLs",
+    );
+    return new URL(PRODUCTION_URL);
   }
   return new URL("http://localhost:3000");
 }

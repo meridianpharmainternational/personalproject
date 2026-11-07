@@ -1,27 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, LegalSection } from "@/components/legal-page";
+import { pageMeta } from "@/lib/seo";
 import { site } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy",
-  description: `What ${site.fullName} collects when you send an enquiry, and how it is used.`,
-};
+export const metadata: Metadata = pageMeta(
+  "/privacy",
+  "Privacy Policy",
+  `What ${site.fullName} collects when you send an enquiry, and how it is used.`,
+);
 
 // TODO(legal): have the client's counsel review this draft; add the data
 // controller's registered details, retention periods and any jurisdiction-
-// specific rights. Then pass `updated="<date>"` to <LegalPage/>.
+// specific rights, then move the `updated` date on <LegalPage/>.
 export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
       current="/privacy"
+      updated="6 November 2026"
       intro="What we collect when you send an enquiry, and how we use it."
     >
-      <p>
-        This policy explains how {site.fullName} handles the information you give us through this
-        website.
-      </p>
+      <p>This policy explains how {site.fullName} handles the information you give us through this website.</p>
 
       <LegalSection title="What we collect">
         <p>When you send an enquiry through the contact form or your enquiry list, we collect:</p>
@@ -35,33 +35,30 @@ export default function PrivacyPage() {
 
       <LegalSection title="How we use it">
         <p>
-          We use these details to respond to your enquiry, prepare quotations and manage our business
-          relationship with you. We do not sell your personal data.
+          We use these details to respond to your enquiry, prepare quotations and manage our business relationship with
+          you. We do not sell your personal data.
         </p>
       </LegalSection>
 
       <LegalSection title="Who can see it">
         <p>
-          Enquiries are available to authorised members of our team. We use service providers to host
-          this website, store enquiries and send enquiry notifications by email; they handle the data on
-          our behalf.
+          Enquiries are available to authorised members of our team. We use service providers to host this website,
+          store enquiries and send enquiry notifications by email; they handle the data on our behalf.
         </p>
       </LegalSection>
 
       <LegalSection title="Stored on your device">
         <p>
-          Your enquiry list is kept in your browser&rsquo;s local storage until you send or clear it.
-          &ldquo;Remember my details on this device&rdquo; is ticked by default. While it is ticked, sending
-          an enquiry saves your name, email, country, company and phone number in your browser, so the form
-          is filled in next time. This information stays on your device. Untick the box before you send, or
-          clear your browser&rsquo;s site data, to remove it.
+          Your enquiry list is kept in your browser&rsquo;s local storage until you send or clear it. &ldquo;Remember my
+          details on this device&rdquo; is ticked by default. While it is ticked, sending an enquiry saves your name,
+          email, country, company and phone number in your browser, so the form is filled in next time. This information
+          stays on your device. Untick the box before you send, or clear your browser&rsquo;s site data, to remove it.
         </p>
       </LegalSection>
 
       <LegalSection title="How long we keep it">
         <p>
-          We keep enquiry records for as long as we need them to respond to you and to manage the business
-          relationship.
+          We keep enquiry records for as long as we need them to respond to you and to manage the business relationship.
         </p>
       </LegalSection>
 
