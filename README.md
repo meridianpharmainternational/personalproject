@@ -74,7 +74,7 @@ email is just skipped.
   several database round trips; from Vercel's default region (Washington DC)
   each one crosses the Pacific. If the Supabase project ever moves, change the
   region to match.
-- Set the production branch to `production` (**Settings → Environments → Production → Branch Tracking**, or **Settings → Git → Production Branch** on older dashboards).
+- Set the production branch to `prod` (**Settings → Environments → Production → Branch Tracking**, or **Settings → Git → Production Branch** on older dashboards).
 - **Domain:** add both `meridiannpharmainternational.com` and
   `www.meridiannpharmainternational.com` under **Settings → Domains**, with the
   apex set to redirect to `www` (the canonical host; `next.config.ts` repeats
