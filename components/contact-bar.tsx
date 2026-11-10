@@ -6,7 +6,7 @@ import { contact, site, whatsappLink } from "@/lib/site";
  * Thin strip above the header on every public page: the phone number, WhatsApp and the social
  * channels, so a buyer can reach the desk from anywhere. Below 640px the channel names drop to
  * icons (labels stay for screen readers); under 360px the number does too. The email address
- * only fits from 1024px up (it is in the footer and on Contact for everyone).
+ * only fits from 1280px up (it is in the footer and on Contact for everyone).
  */
 export function ContactBar() {
   const wa = whatsappLink();

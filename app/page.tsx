@@ -5,9 +5,14 @@ import { ArrowRight, Truck } from "lucide-react";
 import { HeroChart } from "@/components/hero-chart";
 import { BrandMark } from "@/components/social-icon";
 import { ProductCard } from "@/components/catalog/product-card";
+import { ReviewCarousel } from "@/components/reviews/review-carousel";
 import { getCatalogItems, getCatalogSummary, varied } from "@/lib/catalog";
+import { getApprovedReviews } from "@/lib/reviews";
 import { ogBase } from "@/lib/seo";
 import { contact, site, whatsappLink } from "@/lib/site";
+
+/** Newest published reviews in the home carousel; the rest are on /reviews. */
+const REVIEWS_SHOWN = 9;
 
 /** Products shown under "Featured products": one per molecule, mixed across categories. */
 const FEATURED_N = 4;
@@ -37,7 +42,11 @@ export const metadata: Metadata = {
 // Strict reads: if the catalogue can't be loaded during an ISR regeneration,
 // the render throws and Next keeps serving the last good page.
 export default async function HomePage() {
-  const [summary, items] = await Promise.all([getCatalogSummary({ strict: true }), getCatalogItems({ strict: true })]);
+  const [summary, items, reviews] = await Promise.all([
+    getCatalogSummary({ strict: true }),
+    getCatalogItems({ strict: true }),
+    getApprovedReviews(),
+  ]);
   const { categories } = summary;
 
   // One product per category first, so the four featured products are varied.
@@ -179,6 +188,26 @@ export default async function HomePage() {
           </ol>
         </div>
       </section>
+
+      {/* ---------------------------------------------------------- REVIEWS */}
+      {/* Only once a review is published: an empty "reviews" block would only undersell the company. */}
+      {reviews.length > 0 && (
+        <section className="section surface-paper" aria-labelledby="home-reviews">
+          <div className="container-grid">
+            <header className="sec-head">
+              <div>
+                <h2 id="home-reviews">What our buyers say</h2>
+                <p className="lead">Reviews from importers and distributors, checked by our team before they appear.</p>
+              </div>
+              <Link className="link-arrow" href="/reviews#write">
+                Write a review
+                <ArrowRight aria-hidden strokeWidth={1.75} />
+              </Link>
+            </header>
+            <ReviewCarousel reviews={reviews.slice(0, REVIEWS_SHOWN)} label="Customer reviews" />
+          </div>
+        </section>
+      )}
     </>
   );
 }

@@ -2,11 +2,12 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight, Boxes, CheckCircle2, Inbox, MailOpen } from "lucide-react";
 import { adminCounts } from "@/lib/admin/data";
+import { countReviews } from "@/lib/reviews";
 
 export const metadata = { title: "Dashboard" };
 
 export default async function AdminDashboard() {
-  const counts = await adminCounts();
+  const [counts, pendingReviews] = await Promise.all([adminCounts(), countReviews("pending").catch(() => 0)]);
   const hidden = Math.max(0, counts.medicines - counts.activeMedicines);
 
   return (
@@ -55,7 +56,7 @@ export default async function AdminDashboard() {
         <h2 id="shortcuts-title" className="sr-only">
           Shortcuts
         </h2>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div className="panel flex flex-col">
             <p className="kicker">Catalogue</p>
             <h3 className="mt-2 text-h4">Manage medicines</h3>
@@ -79,8 +80,8 @@ export default async function AdminDashboard() {
             <p className="kicker">Inbox</p>
             <h3 className="mt-2 text-h4">Review enquiries</h3>
             <p className="mt-2 text-fg-muted">
-              Read, reply to and archive enquiries from the enquiry list and the contact form.{" "}
-              {counts.newEnquiries} new of {counts.enquiries}.
+              Read, reply to and archive enquiries from the enquiry list and the contact form. {counts.newEnquiries} new
+              of {counts.enquiries}.
             </p>
             <div className="mt-auto flex flex-wrap gap-x-6 pt-4">
               <Link href="/admin/enquiries" className="link-arrow">
@@ -93,6 +94,21 @@ export default async function AdminDashboard() {
                   <ArrowRight aria-hidden="true" className="icon-trail" />
                 </Link>
               )}
+            </div>
+          </div>
+
+          <div className="panel flex flex-col">
+            <p className="kicker">Reviews</p>
+            <h3 className="mt-2 text-h4">Moderate reviews</h3>
+            <p className="mt-2 text-fg-muted">
+              Customer reviews appear on the site only after you approve them.{" "}
+              {pendingReviews > 0 ? `${pendingReviews} waiting.` : "None waiting."}
+            </p>
+            <div className="mt-auto flex flex-wrap gap-x-6 pt-4">
+              <Link href="/admin/reviews" className="link-arrow">
+                {pendingReviews > 0 ? "Review waiting" : "Open reviews"}
+                <ArrowRight aria-hidden="true" className="icon-trail" />
+              </Link>
             </div>
           </div>
         </div>
@@ -119,13 +135,7 @@ function Stat({
   linkLabel?: string;
 }) {
   return (
-    <div
-      className={
-        highlight
-          ? "panel surface-dark flex flex-col border-navy-900 bg-navy-900"
-          : "panel flex flex-col"
-      }
-    >
+    <div className={highlight ? "panel surface-dark flex flex-col border-navy-900 bg-navy-900" : "panel flex flex-col"}>
       <dt className="flex items-start justify-between gap-3">
         <span className={highlight ? "kicker !text-on-dark-subtle" : "kicker"}>{label}</span>
         <span className={`[&>svg]:h-5 [&>svg]:w-5 ${highlight ? "text-on-dark-subtle" : "text-navy-700"}`}>{icon}</span>

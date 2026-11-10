@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
 import { adminCounts } from "@/lib/admin/data";
+import { countReviews } from "@/lib/reviews";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { SignOutButton } from "@/components/admin/sign-out-button";
 
@@ -16,16 +17,16 @@ export const metadata: Metadata = {
  * list are hidden in the staff area), so this adds only a secondary band:
  * "Admin" kicker · section tabs · signed-in email · View site · Sign out.
  */
-export default async function AdminLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default async function AdminLayout({ children }: { children: ReactNode }) {
   // The admin check and the nav counts run in parallel: a failed check still
   // redirects, and its counts are never shown. A counts failure only drops the
   // nav badge; it must not take the admin chrome (View site, Sign out) down
   // with it. The page's own read still throws into the (admin) error boundary.
-  const [{ email }, counts] = await Promise.all([requireAdmin(), adminCounts().catch(() => null)]);
+  const [{ email }, counts, pendingReviews] = await Promise.all([
+    requireAdmin(),
+    adminCounts().catch(() => null),
+    countReviews("pending").catch(() => 0),
+  ]);
 
   return (
     <>
@@ -35,6 +36,7 @@ export default async function AdminLayout({
 
           <AdminNav
             newEnquiries={counts?.newEnquiries}
+            pendingReviews={pendingReviews}
             className="order-3 -ml-3 w-full sm:-ml-4 lg:order-2 lg:ml-0 lg:w-auto"
           />
 

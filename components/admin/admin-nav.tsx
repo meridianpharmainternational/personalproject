@@ -7,17 +7,21 @@ const ITEMS = [
   { href: "/admin", label: "Dashboard", exact: true },
   { href: "/admin/medicines", label: "Medicines", exact: false },
   { href: "/admin/enquiries", label: "Enquiries", exact: false },
+  { href: "/admin/reviews", label: "Reviews", exact: false },
 ] as const;
 
 /**
  * Admin section tabs. Marks the current section with aria-current="page"
- * (.tab draws the 3px navy underline) and shows the number of new enquiries.
+ * (.tab draws the 3px navy underline) and shows the number of new enquiries
+ * and of reviews waiting for approval.
  */
 export function AdminNav({
   newEnquiries = 0,
+  pendingReviews = 0,
   className = "",
 }: {
   newEnquiries?: number;
+  pendingReviews?: number;
   className?: string;
 }) {
   const pathname = usePathname() ?? "";
@@ -29,7 +33,9 @@ export function AdminNav({
           const current = item.exact
             ? pathname === item.href
             : pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const showCount = item.href === "/admin/enquiries" && newEnquiries > 0;
+          const count =
+            item.href === "/admin/enquiries" ? newEnquiries : item.href === "/admin/reviews" ? pendingReviews : 0;
+          const showCount = count > 0;
           return (
             <li key={item.href} className="flex flex-none">
               <Link
@@ -41,9 +47,11 @@ export function AdminNav({
                 {showCount && (
                   <>
                     <span className="count-badge" aria-hidden="true">
-                      {newEnquiries}
+                      {count}
                     </span>
-                    <span className="sr-only">, {newEnquiries} new</span>
+                    <span className="sr-only">
+                      , {count} {item.href === "/admin/reviews" ? "waiting" : "new"}
+                    </span>
                   </>
                 )}
               </Link>

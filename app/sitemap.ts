@@ -8,7 +8,7 @@ import type { MedicineWithCategory } from "@/types/db";
 // Crawlers read the sitemap far less often than visitors load pages, so hourly is enough.
 export const revalidate = 3600;
 
-const STATIC_PATHS = ["/", "/medicines", "/about", "/contact", ...site.legal.map((l) => l.href)];
+const STATIC_PATHS = ["/", "/medicines", "/about", "/reviews", "/contact", ...site.legal.map((l) => l.href)];
 
 type Entry = MetadataRoute.Sitemap[number];
 

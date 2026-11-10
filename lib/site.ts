@@ -83,6 +83,7 @@ export const site = {
   nav: [
     { href: "/medicines", label: "Products" },
     { href: "/about", label: "About" },
+    { href: "/reviews", label: "Reviews" },
     { href: "/contact", label: "Contact" },
   ],
   legal: [

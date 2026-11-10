@@ -18,6 +18,7 @@
   --on-dark:#ffffff; --on-dark-muted:#c9d3e6; --on-dark-subtle:#aab7cf;
   --on-dark-rule:rgba(255,255,255,.14); --focus-dark:#9fc0ff;
   --danger:#b42318; --danger-50:#fdf0ee;
+  --star:#b97500; /* review stars: amber that keeps 3.7:1 on white */
   --r-1:2px; --r-2:4px; --r-3:6px;
   --sans: var(--font-sans, "IBM Plex Sans"), system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --serif: var(--font-serif, "Source Serif 4"), Georgia, Cambria, "Times New Roman", serif;
@@ -300,7 +301,9 @@
 .utility-link svg { width:18px; height:18px; flex:none; }
 .utility-mail { display:none; }
 .utility-hours { display:none; margin-left:auto; white-space:nowrap; color:var(--on-dark-subtle); }
-@media (min-width:1024px) { .utility-mail { display:inline-flex; } .utility-hours { display:inline; } }
+/* The email needs the room of a wide screen; from 1024px the hours fit beside the channels. */
+@media (min-width:1024px) { .utility-hours { display:inline; } }
+@media (min-width:1280px) { .utility-mail { display:inline-flex; } }
 /* Phones: channel names become icons only (the labels stay for screen readers); under 360px the number too. */
 @media (max-width:639.98px) { .utility-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; } }
 @media (max-width:359.98px) { .utility-phone { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
@@ -328,6 +331,8 @@
 .nav-link::after { content:""; position:absolute; left:.75rem; right:.75rem; bottom:calc((44px - var(--header-h)) / 2 - 1px); height:2px;
   background:var(--navy-900); transform:scaleX(0); transform-origin:left; transition:transform var(--dur-2) var(--ease-out); }
 .nav-link[aria-current="page"]::after { transform:scaleX(1); }
+/* Small desktops: tighter links so four of them leave the header search its full placeholder. */
+@media (min-width:1024px) and (max-width:1279.98px) { .nav-link { padding:0 .5rem; } .nav-link::after { left:.5rem; right:.5rem; } }
 .search { position:relative; display:none; flex:1 1 auto; max-width:30rem; margin-left:auto; }
 @media (min-width:768px) { .search { display:block; } }
 .search-toggle { margin-left:auto; }
@@ -470,6 +475,51 @@
   .cat-filters-sort { justify-self:end; width:13rem; } }
 .cat-filters-meta { display:flex; align-items:center; justify-content:space-between; gap:1rem; min-height:44px; margin-top:.75rem; }
 .results-grid.is-updating { opacity:.4; }
+/* ------------------------------------------------------------ reviews */
+/* Review card (components/reviews/review-card.tsx): stars and month, the review, who wrote it. */
+.rv-card { display:flex; flex:1; flex-direction:column; min-width:0; padding:1.5rem; background:var(--canvas);
+  border:1px solid var(--rule); border-radius:var(--r-3); }
+.rv-stars { display:inline-flex; gap:2px; flex:none; }
+.rv-stars svg { width:18px; height:18px; color:var(--rule); }
+.rv-stars svg.is-on { color:var(--star); }
+.rv-date { font-size:.875rem; color:var(--text-subtle); white-space:nowrap; }
+.rv-quote { flex:1; margin-top:1rem; font-size:1.0625rem; line-height:1.65; color:var(--text); overflow-wrap:anywhere; }
+.rv-by { display:flex; align-items:center; gap:.875rem; margin-top:1.5rem; padding-top:1.25rem; border-top:1px solid var(--rule); }
+.rv-avatar { display:grid; place-items:center; flex:none; width:48px; height:48px; border-radius:9999px; object-fit:cover;
+  background:var(--navy-50); color:var(--navy-900); font-weight:600; letter-spacing:.02em; }
+.rv-avatar-lg { width:56px; height:56px; color:var(--text-subtle); border:1px dashed var(--rule-strong); }
+img.rv-avatar-lg { border-style:solid; border-color:var(--rule); }
+.rv-name { font-weight:600; line-height:1.35; color:var(--text-strong); overflow-wrap:anywhere; }
+.rv-meta { margin-top:.125rem; font-size:.9375rem; line-height:1.4; color:var(--text-muted); overflow-wrap:anywhere; }
+/* /reviews: every published review in a grid. */
+.rv-grid { display:grid; gap:1rem; }
+@media (min-width:640px) { .rv-grid { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+@media (min-width:1024px) { .rv-grid { grid-template-columns:repeat(3, minmax(0,1fr)); gap:1.5rem; } }
+/* Home carousel (components/reviews/review-carousel.tsx): one card and a peek on phones, two on tablets, three
+   on desktops; scroll snap does the rest. The controls hide where every card already fits (data-count). */
+.rv-track { display:grid; grid-auto-flow:column; grid-auto-columns:86%; gap:1rem; overflow-x:auto; overscroll-behavior-x:contain;
+  scroll-snap-type:x mandatory; scrollbar-width:none; padding:2px; margin:-2px; }
+.rv-track::-webkit-scrollbar { display:none; }
+.rv-track > li { display:flex; scroll-snap-align:start; }
+.rv-track:focus-visible { outline-offset:4px; }
+@media (min-width:640px) { .rv-track { grid-auto-columns:calc((100% - 1rem) / 2); } }
+@media (min-width:1024px) { .rv-track { grid-auto-columns:calc((100% - 3rem) / 3); gap:1.5rem; } }
+.rv-controls { display:flex; align-items:center; gap:1.5rem; margin-top:1.5rem; }
+.rv-progress { position:relative; flex:1; height:2px; overflow:hidden; background:var(--rule); border-radius:1px; }
+.rv-progress span { position:absolute; inset:0 auto 0 0; background:var(--navy-900); transition:transform var(--dur-3) var(--ease-out); }
+.rv-controls .icon-btn { background:var(--canvas); color:var(--navy-900); }
+.rv-controls .icon-btn:disabled { color:var(--rule-strong); border-color:var(--rule); cursor:default; }
+.rv-carousel[data-count="1"] .rv-controls { display:none; }
+@media (min-width:640px) { .rv-carousel[data-count="2"] .rv-controls { display:none; } }
+@media (min-width:1024px) { .rv-carousel[data-count="3"] .rv-controls { display:none; } }
+/* Star rating input (components/reviews/review-form.tsx): five 44px radio labels. */
+.rv-rate { display:flex; }
+.rv-rate-star { display:grid; place-items:center; width:44px; height:44px; border-radius:var(--r-1); cursor:pointer; }
+.rv-rate-star svg { width:30px; height:30px; color:var(--rule-strong); transition:color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out); }
+.rv-rate-star svg.is-on { color:var(--star); }
+.rv-rate-star:has(input:focus-visible) { outline:2px solid var(--navy-600); outline-offset:-2px; }
+.rv-file:has(input:focus-visible) { outline:2px solid var(--navy-600); outline-offset:2px; }
+
 .loadmore { display:grid; justify-items:center; gap:1rem; margin-top:3rem; }
 .loadmore-text { font-family:var(--mono); font-size:.875rem; letter-spacing:.04em; color:var(--text-muted); }
 .empty { display:grid; justify-items:start; gap:1rem; padding:2.5rem; border:1px dashed var(--rule-strong); border-radius:var(--r-2); background:var(--paper); }
@@ -702,6 +752,8 @@ html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-p
   .btn-danger:hover { background:var(--danger-50); }
   .btn-ghost:hover, .crumbs a:hover, .footer-link:hover { text-decoration-color:currentColor; }
   .footer-link:hover, .utility-link:hover { color:#fff; }
+  .rv-controls .icon-btn:not(:disabled):hover { background:var(--paper); border-color:var(--navy-900); }
+  .rv-rate-star:hover svg { transform:scale(1.08); }
   .hero-notes a:hover { text-decoration-color:currentColor; }
   .hero-notes .hero-reach-link:hover { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.4); }
   .btn-inverse:hover { background:var(--navy-50); }
@@ -780,6 +832,7 @@ html:has(:is(.bulk-bar, .enq-bar, .toast, .back-to-top):focus-within) { scroll-p
   .btn, .chip, .badge, .count-badge, .pcard, .enq-btn, .toggle-chip, .hero-reach-link { border:1px solid CanvasText; }
   .badge-code.is-match { outline:2px solid CanvasText; outline-offset:1px; }
   .hero-art, .hero::before, .hero::after { display:none; }
+  .rv-stars svg.is-on, .rv-rate-star svg.is-on { color:CanvasText; }
   .utility-bar { border-bottom:1px solid CanvasText; }
   .pcard::before { background:Highlight; }
   /* Selected states drawn with background, an SVG tick or box-shadow vanish when the system palette
