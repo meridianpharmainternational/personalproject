@@ -63,6 +63,24 @@ export interface Enquiry {
   created_at: string;
 }
 
+export type ReviewStatus = "pending" | "approved" | "rejected";
+
+/** A customer review (supabase/schema.sql, reviews). Only approved rows, without email and flagged, are public. */
+export interface Review {
+  id: string;
+  name: string;
+  company: string | null;
+  country: string | null;
+  email: string | null; // never published
+  rating: number; // 1–5
+  comment: string;
+  photo_path: string | null; // path in the private "reviews" storage bucket, e.g. photos/<id>.jpg
+  status: ReviewStatus;
+  flagged: boolean; // the hidden anti-bot field was filled in
+  created_at: string;
+  reviewed_at: string | null;
+}
+
 /** Presence of an admins row (id === auth.users.id) grants admin access. */
 export interface Admin {
   id: string;
@@ -99,4 +117,18 @@ export type EnquiryInsert = {
   product?: string | null;
   message?: string | null;
   page?: string | null;
+};
+
+export type ReviewInsert = {
+  id?: string;
+  name: string;
+  company?: string | null;
+  country?: string | null;
+  email?: string | null;
+  rating: number;
+  comment: string;
+  photo_path?: string | null;
+  status?: ReviewStatus;
+  flagged?: boolean;
+  created_at?: string;
 };

@@ -15,7 +15,7 @@ const FAILED = "Couldn't update this review. Try again.";
  * off the site) and Delete (for good, with its photo, after a confirm). The
  * server action revalidates /admin/reviews, so the list refreshes by itself.
  */
-export function ReviewRowActions({ file, status, name }: { file: string; status: ReviewStatus; name: string }) {
+export function ReviewRowActions({ id, status, name }: { id: string; status: ReviewStatus; name: string }) {
   const [pending, startTransition] = useTransition();
   const [which, setWhich] = useState<Which | null>(null);
   const who = `review from ${name}`;
@@ -47,7 +47,7 @@ export function ReviewRowActions({ file, status, name }: { file: string; status:
         <button
           type="button"
           disabled={pending}
-          onClick={act("approve", () => setReviewStatus(file, status, "approved"), `Published the ${who}.`)}
+          onClick={act("approve", () => setReviewStatus(id, "approved"), `Published the ${who}.`)}
           className="btn btn-primary btn-sm"
         >
           {label("approve", <Check aria-hidden="true" />, "Approve")}
@@ -57,7 +57,7 @@ export function ReviewRowActions({ file, status, name }: { file: string; status:
         <button
           type="button"
           disabled={pending}
-          onClick={act("reject", () => setReviewStatus(file, status, "rejected"), `The ${who} is hidden.`)}
+          onClick={act("reject", () => setReviewStatus(id, "rejected"), `The ${who} is hidden.`)}
           className="btn btn-secondary btn-sm"
         >
           {status === "approved"
@@ -68,7 +68,7 @@ export function ReviewRowActions({ file, status, name }: { file: string; status:
       <button
         type="button"
         disabled={pending}
-        onClick={act("delete", () => removeReview(file, status), `Deleted the ${who}.`)}
+        onClick={act("delete", () => removeReview(id), `Deleted the ${who}.`)}
         className="btn btn-danger btn-sm"
       >
         {label("delete", <Trash2 aria-hidden="true" />, "Delete")}

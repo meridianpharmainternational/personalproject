@@ -3,8 +3,9 @@
 import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { REVIEWS_BUCKET, ensureReviewsBucket, reviewFile, type StoredReview } from "@/lib/reviews";
+import { REVIEWS_BUCKET, ensureReviewsBucket } from "@/lib/reviews";
 import { REVIEW_LIMITS, reviewSchema } from "@/lib/validations/review";
+import type { ReviewInsert } from "@/types/db";
 
 export type ReviewResult = { ok: boolean; error?: string };
 
@@ -49,7 +50,8 @@ function sniff(bytes: Uint8Array): { ext: "jpg" | "png" | "webp"; type: string }
 
 /**
  * Public review submission. The review is validated here (the form's checks are
- * a convenience), stored as PENDING in the private reviews bucket, and appears
+ * a convenience), inserted as PENDING into public.reviews with the server-only
+ * service role (the table is not publicly writable), and appears
  * on the site only after an admin approves it (app/admin/reviews). A filled
  * honeypot does not drop the review: it is stored flagged so the admin sees it,
  * and the reply is the same either way.
@@ -87,8 +89,9 @@ export async function submitReview(formData: FormData): Promise<ReviewResult> {
     photo = { bytes, ...kind };
   }
 
+  // The id is chosen here so the photo can be stored under it before the row exists.
   const id = randomUUID();
-  const review: StoredReview = {
+  const review: ReviewInsert = {
     id,
     name: d.name,
     company: d.company || null,
@@ -96,24 +99,27 @@ export async function submitReview(formData: FormData): Promise<ReviewResult> {
     email: d.email || null,
     rating: d.rating,
     comment: d.comment,
-    photo: photo ? `photos/${id}.${photo.ext}` : null,
-    createdAt: new Date().toISOString(),
+    photo_path: photo ? `photos/${id}.${photo.ext}` : null,
+    status: "pending",
     flagged: text(formData, HONEYPOT_FIELD).trim() !== "",
   };
 
   try {
-    await ensureReviewsBucket();
-    const storage = createAdminClient().storage.from(REVIEWS_BUCKET);
-    if (photo && review.photo) {
-      const { error } = await storage.upload(review.photo, photo.bytes, { contentType: photo.type, upsert: false });
+    const admin = createAdminClient();
+    if (photo && review.photo_path) {
+      await ensureReviewsBucket();
+      const { error } = await admin.storage
+        .from(REVIEWS_BUCKET)
+        .upload(review.photo_path, photo.bytes, { contentType: photo.type, upsert: false });
       if (error)
         return { ok: false, error: "We couldn’t upload your photo. Please try again, or send the review without it." };
     }
-    const { error } = await storage.upload(`pending/${reviewFile(review)}`, JSON.stringify(review), {
-      contentType: "application/json",
-      upsert: false,
-    });
-    if (error) return { ok: false, error: "We couldn’t send your review. Please try again." };
+    const { error } = await admin.from("reviews").insert(review);
+    if (error) {
+      console.error("[reviews] insert failed", error.message);
+      if (review.photo_path) await admin.storage.from(REVIEWS_BUCKET).remove([review.photo_path]);
+      return { ok: false, error: "We couldn’t send your review. Please try again." };
+    }
   } catch {
     return { ok: false, error: "We couldn’t send your review. Please try again." };
   }

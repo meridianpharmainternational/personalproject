@@ -118,6 +118,47 @@ create policy "enquiries admin all" on public.enquiries
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- ===========================================================================
+-- Customer reviews (submitted on /reviews, published after an admin approves
+-- them at /admin/reviews). Inserts and moderation writes go through the
+-- service role on the server. The public may read approved rows only, and only
+-- the published columns (never email or flagged). Photos live in the PRIVATE
+-- storage bucket `reviews` (created by the app on first upload); photo_path
+-- points at them. The length checks mirror lib/validations/review.ts.
+-- ===========================================================================
+create table if not exists public.reviews (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null check (char_length(name) between 2 and 60),
+  company     text check (company is null or char_length(company) <= 80),
+  country     text check (country is null or char_length(country) <= 60),
+  email       text check (email is null or char_length(email) <= 254),   -- never published
+  rating      smallint not null check (rating between 1 and 5),
+  comment     text not null check (char_length(comment) between 20 and 300),
+  photo_path  text,                                  -- e.g. photos/<id>.jpg in the private `reviews` bucket
+  status      text not null default 'pending' check (status in ('pending','approved','rejected')),
+  flagged     boolean not null default false,        -- hidden anti-bot field was filled in
+  created_at  timestamptz not null default now(),
+  reviewed_at timestamptz
+);
+create index if not exists reviews_status_created_idx on public.reviews(status, created_at desc);
+
+alter table public.reviews enable row level security;
+
+-- Start from no access for the public roles, then grant exactly what is needed.
+revoke all on public.reviews from anon, authenticated;
+
+-- Public site: approved reviews only, and only the columns that are published.
+grant select (id, name, company, country, rating, comment, photo_path, created_at) on public.reviews to anon;
+drop policy if exists "reviews public read approved" on public.reviews;
+create policy "reviews public read approved" on public.reviews
+  for select to anon using (status = 'approved');
+
+-- Admins (rows in public.admins): read everything, approve, hide, delete.
+grant select, insert, update, delete on public.reviews to authenticated;
+drop policy if exists "reviews admin all" on public.reviews;
+create policy "reviews admin all" on public.reviews
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- ===========================================================================
 -- Storage: public-read bucket for medicine images (writes done server-side)
 -- ===========================================================================
 insert into storage.buckets (id, name, public)

@@ -1,48 +1,28 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createPublicClient } from "@/lib/supabase/public";
+import { createClient } from "@/lib/supabase/server";
+import type { Review, ReviewStatus } from "@/types/db";
 
 /**
- * Customer reviews, kept in the PRIVATE Supabase storage bucket `reviews` (one
- * small JSON file per review, plus an optional photo) and read only on the server
- * with the service-role client. Moderation state is the folder a review sits in:
+ * Customer reviews: rows in public.reviews (supabase/schema.sql), photos in the
+ * PRIVATE storage bucket `reviews` (photos/<id>.<ext>).
  *
- *   pending/<stamp>_<id>.json    submitted, waiting for an admin
- *   approved/<stamp>_<id>.json   shown on the site
- *   rejected/<stamp>_<id>.json   kept for the record, never shown
- *   photos/<id>.<ext>            served only while the review is approved
- *
- * Storage rather than a table because the app never migrates the database (the
- * owner applies supabase/schema.sql by hand), and reviews are few and written
- * rarely. <stamp> is the submission time, so listing a folder by name, newest
- * first, is the display order. The bucket being private means nothing here is
- * reachable from the browser: public pages get approved reviews through
- * getApprovedReviews() and photos through app/images/reviews/[file]/route.ts.
+ * - The public site reads with the anon key, which RLS limits to approved rows
+ *   and a column grant to the published columns (never email or flagged).
+ * - The moderation screen reads as the signed-in admin (RLS admin policy).
+ * - Writes (new reviews, approve/hide/delete) go through the service role on
+ *   the server, after validation or requireAdmin().
+ * - Photos are reachable only through app/images/reviews/[file]/route.ts, and
+ *   only while their review is approved.
  */
 
 export const REVIEWS_BUCKET = "reviews";
 export const REVIEWS_TAG = "reviews";
 
-export const REVIEW_STATUSES = ["pending", "approved", "rejected"] as const;
-export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
-
-/** A review as stored. `email` is never shown publicly. */
-export type StoredReview = {
-  id: string;
-  name: string;
-  company: string | null;
-  country: string | null;
-  email: string | null;
-  rating: number;
-  comment: string;
-  /** Path of the photo in the bucket ("photos/<id>.jpg"), or null. */
-  photo: string | null;
-  createdAt: string;
-  /** The hidden form field was filled: probably a bot. Shown to the admin, never published. */
-  flagged: boolean;
-};
-
-export type AdminReview = StoredReview & { status: ReviewStatus; file: string };
+export const REVIEW_STATUSES = ["pending", "approved", "rejected"] as const satisfies readonly ReviewStatus[];
+export type { ReviewStatus };
 
 /** What the public pages get: no email, no flag, the photo as a same-origin URL. */
 export type PublicReview = {
@@ -57,20 +37,17 @@ export type PublicReview = {
   date: string;
 };
 
-/** Most reviews a folder listing returns; more than the site will show for a long time. */
+/** Most reviews any one list loads; far more than the site will hold for a long time. */
 const LIST_LIMIT = 200;
 
-const ID = /^[0-9a-f-]{36}$/;
+/** The columns granted to the public (supabase/schema.sql). Selecting any other column is refused. */
+const PUBLIC_COLUMNS = "id, name, company, country, rating, comment, photo_path, created_at";
+
 const PHOTO_PATH = /^photos\/([0-9a-f-]{36})\.(jpg|png|webp)$/;
-
-/** "20261110T091530Z": sortable as text, safe in a storage key. */
-export const stampOf = (iso: string) => iso.replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
-
-export const reviewFile = (r: Pick<StoredReview, "id" | "createdAt">) => `${stampOf(r.createdAt)}_${r.id}.json`;
 
 let bucketReady = false;
 
-/** Creates the private bucket on first use, so a fresh project needs no manual setup. */
+/** Creates the private photo bucket on first use, so a fresh project needs no manual setup. */
 export async function ensureReviewsBucket(): Promise<void> {
   if (bucketReady) return;
   const storage = createAdminClient().storage;
@@ -82,57 +59,15 @@ export async function ensureReviewsBucket(): Promise<void> {
   bucketReady = true;
 }
 
-function parse(raw: string): StoredReview | null {
-  try {
-    const r = JSON.parse(raw) as Partial<StoredReview>;
-    if (!r.id || !ID.test(r.id) || !r.name || !r.comment || !r.createdAt) return null;
-    const rating = Math.round(Number(r.rating));
-    if (!(rating >= 1 && rating <= 5)) return null;
-    return {
-      id: r.id,
-      name: r.name,
-      company: r.company || null,
-      country: r.country || null,
-      email: r.email || null,
-      rating,
-      comment: r.comment,
-      photo: r.photo && PHOTO_PATH.test(r.photo) ? r.photo : null,
-      createdAt: r.createdAt,
-      flagged: Boolean(r.flagged),
-    };
-  } catch {
-    return null;
-  }
-}
-
-/** Every review in one folder, newest first. Throws when storage cannot be read. */
-export async function listReviews(status: ReviewStatus): Promise<AdminReview[]> {
-  const storage = createAdminClient().storage.from(REVIEWS_BUCKET);
-  const { data, error } = await storage.list(status, {
-    limit: LIST_LIMIT,
-    sortBy: { column: "name", order: "desc" },
-  });
-  if (error) {
-    // A project whose bucket does not exist yet simply has no reviews.
-    if (/not found/i.test(error.message)) return [];
-    throw new Error(error.message);
-  }
-  const files = (data ?? []).filter((f) => f.name.endsWith(".json"));
-  const reviews = await Promise.all(
-    files.map(async (f) => {
-      const { data: blob, error: e } = await storage.download(`${status}/${f.name}`);
-      if (e || !blob) return null;
-      const r = parse(await blob.text());
-      return r ? { ...r, status, file: f.name } : null;
-    }),
-  );
-  return reviews.filter((r): r is AdminReview => r !== null);
-}
-
 const monthYear = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 
-function toPublic(r: StoredReview): PublicReview {
-  const photo = r.photo?.match(PHOTO_PATH);
+type PublicRow = Pick<
+  Review,
+  "id" | "name" | "company" | "country" | "rating" | "comment" | "photo_path" | "created_at"
+>;
+
+function toPublic(r: PublicRow): PublicReview {
+  const photo = r.photo_path?.match(PHOTO_PATH);
   return {
     id: r.id,
     name: r.name,
@@ -141,17 +76,26 @@ function toPublic(r: StoredReview): PublicReview {
     rating: r.rating,
     comment: r.comment,
     photoUrl: photo ? `/images/reviews/${photo[1]}.${photo[2]}` : null,
-    date: monthYear.format(new Date(r.createdAt)),
+    date: monthYear.format(new Date(r.created_at)),
   };
 }
 
 const cachedApproved = unstable_cache(
-  async (): Promise<PublicReview[]> => (await listReviews("approved")).map(toPublic),
-  ["reviews:approved:v1"],
+  async (): Promise<PublicReview[]> => {
+    // RLS returns approved rows only; status itself is not a public column, so it is not filtered here.
+    const { data, error } = await createPublicClient()
+      .from("reviews")
+      .select(PUBLIC_COLUMNS)
+      .order("created_at", { ascending: false })
+      .limit(LIST_LIMIT);
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as PublicRow[]).map(toPublic);
+  },
+  ["reviews:approved:v2"],
   { tags: [REVIEWS_TAG], revalidate: 300 },
 );
 
-/** Last good read in this server instance, so a storage outage keeps the reviews already shown. */
+/** Last good read in this server instance, so an outage keeps the reviews already shown. */
 let lastApproved: PublicReview[] | null = null;
 
 /** Approved reviews, newest first, for the public pages. Never throws: an outage shows the last good copy or none. */
@@ -174,32 +118,66 @@ export async function getApprovedPhoto(id: string, ext: string): Promise<{ body:
   return { body: data, contentType: ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg" };
 }
 
-/** Moves a review to another folder (approve, reject, restore). */
-export async function moveReview(file: string, from: ReviewStatus, to: ReviewStatus): Promise<boolean> {
-  if (from === to || !/^[0-9TZ]+_[0-9a-f-]{36}\.json$/.test(file)) return false;
-  const { error } = await createAdminClient().storage.from(REVIEWS_BUCKET).move(`${from}/${file}`, `${to}/${file}`);
-  if (error) console.error("[reviews] move failed", { file, from, to }, error.message);
-  return !error;
+/* ------------------------------------------------------------ moderation */
+
+/**
+ * Every review with this status, newest first, read as the signed-in admin.
+ * Throws when the read fails, so an outage is never shown as "no reviews".
+ */
+export async function listReviews(status: ReviewStatus): Promise<Review[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("status", status)
+    .order("created_at", { ascending: false })
+    .limit(LIST_LIMIT);
+  if (error) throw new Error(`Couldn't load reviews: ${error.message}`);
+  return (data ?? []) as Review[];
 }
 
-/** Deletes a review and its photo for good. */
-export async function deleteReview(file: string, status: ReviewStatus): Promise<boolean> {
-  const m = file.match(/^[0-9TZ]+_([0-9a-f-]{36})\.json$/);
-  if (!m) return false;
-  const storage = createAdminClient().storage.from(REVIEWS_BUCKET);
-  const { data: blob } = await storage.download(`${status}/${file}`);
-  const stored = blob ? parse(await blob.text()) : null;
-  const { data, error } = await storage.remove([`${status}/${file}`, ...(stored?.photo ? [stored.photo] : [])]);
+/** How many reviews have this status (the admin nav badge and dashboard). */
+export async function countReviews(status: ReviewStatus): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("reviews")
+    .select("id", { count: "exact", head: true })
+    .eq("status", status);
+  if (error) throw new Error(`Couldn't count reviews: ${error.message}`);
+  return count ?? 0;
+}
+
+/** Approve, hide or restore. False when the write failed or matched no row. */
+export async function updateReviewStatus(id: string, status: ReviewStatus): Promise<boolean> {
+  const { data, error } = await createAdminClient()
+    .from("reviews")
+    .update({ status, reviewed_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id");
   if (error || !data?.length) {
-    console.error("[reviews] delete failed", { file, status }, error?.message ?? "nothing removed");
+    console.error("[reviews] status update failed", { id, status }, error?.message ?? "no row updated");
     return false;
   }
   return true;
 }
 
-/** Short-lived links to pending/rejected photos for the moderation screen (the bucket is private). */
-export async function signedPhotoUrls(reviews: StoredReview[]): Promise<Record<string, string>> {
-  const paths = reviews.flatMap((r) => (r.photo ? [r.photo] : []));
+/** Deletes a review for good, and its photo. */
+export async function deleteReview(id: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("reviews").delete().eq("id", id).select("photo_path");
+  if (error || !data?.length) {
+    console.error("[reviews] delete failed", { id }, error?.message ?? "no row deleted");
+    return false;
+  }
+  const photo = (data[0] as Pick<Review, "photo_path">).photo_path;
+  // The row is gone either way; a photo left behind is never served (no approved row points at it).
+  if (photo) await admin.storage.from(REVIEWS_BUCKET).remove([photo]);
+  return true;
+}
+
+/** Short-lived links to review photos for the moderation screen (the bucket is private). */
+export async function signedPhotoUrls(reviews: Pick<Review, "photo_path">[]): Promise<Record<string, string>> {
+  const paths = reviews.flatMap((r) => (r.photo_path && PHOTO_PATH.test(r.photo_path) ? [r.photo_path] : []));
   if (!paths.length) return {};
   const { data } = await createAdminClient().storage.from(REVIEWS_BUCKET).createSignedUrls(paths, 600);
   const out: Record<string, string> = {};
@@ -208,11 +186,4 @@ export async function signedPhotoUrls(reviews: StoredReview[]): Promise<Record<s
     if (id && d.signedUrl) out[id] = d.signedUrl;
   }
   return out;
-}
-
-/** How many reviews wait in a folder, without downloading them (the admin nav badge). */
-export async function countReviews(status: ReviewStatus): Promise<number> {
-  const { data, error } = await createAdminClient().storage.from(REVIEWS_BUCKET).list(status, { limit: LIST_LIMIT });
-  if (error) return 0;
-  return (data ?? []).filter((f) => f.name.endsWith(".json")).length;
 }

@@ -73,7 +73,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
               <li key={r.id} className="panel flex flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Stars rating={r.rating} />
-                  <p className="text-sm text-fg-muted">Sent {submitted.format(new Date(r.createdAt))}</p>
+                  <p className="text-sm text-fg-muted">Sent {submitted.format(new Date(r.created_at))}</p>
                 </div>
                 {r.flagged && (
                   <p className="flex items-center gap-2 text-sm font-medium text-danger">
@@ -98,7 +98,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
                     )}
                   </div>
                 </div>
-                <ReviewRowActions file={r.file} status={r.status} name={r.name} />
+                <ReviewRowActions id={r.id} status={r.status} name={r.name} />
               </li>
             );
           })}
