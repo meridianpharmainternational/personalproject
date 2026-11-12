@@ -35,6 +35,7 @@ export function JsonLd({ nodes }: { nodes: JsonLdNode[] }) {
  */
 export function organizationNode(knowsAbout: string[] = []): JsonLdNode {
   const phone = contact.phone ? e164(contact.phone) : null;
+  const phone2 = contact.phone2 ? e164(contact.phone2) : null;
   return {
     "@type": "Organization",
     "@id": ORG_ID,
@@ -55,8 +56,18 @@ export function organizationNode(knowsAbout: string[] = []): JsonLdNode {
         ...(contact.email ? { email: contact.email } : {}),
         availableLanguage: ["en"],
       },
+      ...(phone2
+        ? [{ "@type": "ContactPoint", contactType: "sales", telephone: phone2, availableLanguage: ["en"] }]
+        : []),
     ],
-    sameAs: site.social.filter((s) => !/facebook\.com\/share\//.test(s.href)).map((s) => s.href),
+    // The Maps listing is for search engines only (never shown on the page); the IndiaMART site is the
+    // company's own second website.
+    hasMap: site.googleBusiness.map,
+    sameAs: [
+      ...site.social.filter((s) => !/facebook\.com\/share\//.test(s.href)).map((s) => s.href),
+      site.store.href,
+      `https://www.google.com/search?kgmid=${site.googleBusiness.kgmid}`,
+    ],
     areaServed: "Worldwide",
     ...(knowsAbout.length ? { knowsAbout } : {}),
   };

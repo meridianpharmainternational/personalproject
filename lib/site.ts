@@ -20,7 +20,23 @@ export const site = {
   // No postal address, by the owner's decision.
   email: "meridianpharmainternational@gmail.com",
   phone: "+91 91850 81244",
+  /** Second number for new buyers (owner, 2026-11-12): footer, phone menu and Contact. Not on WhatsApp as far as we know. */
+  phone2: "+91 90565 67898",
   whatsapp: "+91 91850 81244", // digits only are used for wa.me links
+  /**
+   * The company's other website, built on IndiaMART, where buyers can order (owner, 2026-11-12). Linked
+   * from the product page, footer, phone menu and Contact, and listed in the structured data.
+   */
+  store: {
+    name: "IndiaMART store",
+    host: "meridianpharmainternational.com",
+    href: "https://www.meridianpharmainternational.com/",
+  },
+  /**
+   * The Google Business Profile (Maps listing). Search engines only: it goes into the structured data
+   * (hasMap, sameAs) and is never shown on the page, as the owner publishes no address on this site.
+   */
+  googleBusiness: { map: "https://share.google/N9VFcmwBJnr5spJx5", kgmid: "/g/11p271kfjp" },
   /** Products available to order (owner's figure, 2026-11-04). The catalogue lists a selection. */
   catalogueSize: "13,000+",
   /** Social channels: contact bar, footer, phone menu, Contact page and the hero. */
@@ -106,6 +122,8 @@ export const contact = {
   emailParts: isPlaceholderEmail(site.email) ? null : (site.email.split("@") as [string, string]),
   phone: isPlaceholderPhone(site.phone) ? null : site.phone,
   phoneHref: isPlaceholderPhone(site.phone) ? null : `tel:${site.phone.replace(/[^\d+]/g, "")}`,
+  phone2: isPlaceholderPhone(site.phone2) ? null : site.phone2,
+  phone2Href: isPlaceholderPhone(site.phone2) ? null : `tel:${site.phone2.replace(/[^\d+]/g, "")}`,
 } as const;
 
 /**

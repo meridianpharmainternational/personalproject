@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Clock, CreditCard, Mail, MessageCircle, Phone, Truck } from "lucide-react";
+import { Clock, CreditCard, Mail, MessageCircle, Phone, ShoppingBag, Truck } from "lucide-react";
 import { EnquiryForm } from "@/components/enquiry/enquiry-form";
 import { SocialIcon } from "@/components/social-icon";
 import { pageMeta } from "@/lib/seo";
@@ -68,6 +68,11 @@ export default function ContactPage() {
                       {contact.phone}
                     </ContactRow>
                   )}
+                  {contact.phone2 && contact.phone2Href && (
+                    <ContactRow icon={<Phone aria-hidden />} label="Phone (new buyers)" href={contact.phone2Href}>
+                      {contact.phone2}
+                    </ContactRow>
+                  )}
                   {wa && (
                     <ContactRow icon={<MessageCircle aria-hidden />} label="WhatsApp" href={wa} external>
                       Chat on WhatsApp
@@ -78,6 +83,14 @@ export default function ContactPage() {
                       {s.handle}
                     </ContactRow>
                   ))}
+                  <ContactRow
+                    icon={<ShoppingBag aria-hidden />}
+                    label={`Order online · ${site.store.name}`}
+                    href={site.store.href}
+                    external
+                  >
+                    {site.store.host}
+                  </ContactRow>
                 </ul>
               </>
             )}

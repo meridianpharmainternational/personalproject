@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { Check, MessageCircle, Minus, Plus } from "lucide-react";
+import { Check, MessageCircle, Minus, Plus, ShoppingBag } from "lucide-react";
 import { enquiryList, itemKey, useEnquiryList, type EnquiryItem } from "@/lib/enquiry-list";
 import { toAddInput } from "@/lib/enquiry-actions";
 import { announce, toast } from "@/lib/ui-store";
 import { formatEnquiryItems, keepTogether } from "@/lib/format";
-import { whatsappLink } from "@/lib/site";
+import { site, whatsappLink } from "@/lib/site";
 import type { CatalogItem } from "@/lib/catalog";
 
 const MAX_QTY = 100000; // mirrors the store's clamp
@@ -255,6 +255,12 @@ export function ProductPurchase({ product }: { product: CatalogItem }) {
             <span className="sr-only"> (opens WhatsApp)</span>
           </a>
         )}
+        {/* The company's IndiaMART website, for buyers who prefer to order there. */}
+        <a className="btn btn-ghost btn-lg" href={site.store.href} target="_blank" rel="noopener">
+          <ShoppingBag aria-hidden strokeWidth={1.75} />
+          Order on our {site.store.name}
+          <span className="sr-only"> (opens our IndiaMART website)</span>
+        </a>
       </div>
 
       {lines.length > 0 && (

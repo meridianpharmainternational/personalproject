@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Mail, MessageCircle, Phone } from "lucide-react";
+import { Mail, MessageCircle, Phone, ShoppingBag } from "lucide-react";
 import logo from "@/app/assets/logo.png";
 import { SocialIcon } from "@/components/social-icon";
 import { contact, site, whatsappLink } from "@/lib/site";
@@ -67,7 +67,7 @@ export function SiteFooter() {
                 <li>
                   <a className="footer-link" href={`mailto:${contact.email}`}>
                     <Mail aria-hidden className="h-4 w-4 flex-none" />{" "}
-                    <span className="break-words">
+                    <span className="min-w-0 [overflow-wrap:anywhere]">
                       {contact.emailParts[0]}@<wbr />
                       {contact.emailParts[1]}
                     </span>
@@ -78,6 +78,13 @@ export function SiteFooter() {
                 <li>
                   <a className="footer-link" href={contact.phoneHref}>
                     <Phone aria-hidden className="h-4 w-4" /> {contact.phone}
+                  </a>
+                </li>
+              )}
+              {contact.phone2Href && (
+                <li>
+                  <a className="footer-link" href={contact.phone2Href}>
+                    <Phone aria-hidden className="h-4 w-4" /> {contact.phone2}
                   </a>
                 </li>
               )}
@@ -95,6 +102,11 @@ export function SiteFooter() {
                   </a>
                 </li>
               ))}
+              <li>
+                <a className="footer-link" href={site.store.href} target="_blank" rel="noopener">
+                  <ShoppingBag aria-hidden className="h-4 w-4" /> {site.store.name}
+                </a>
+              </li>
             </ul>
           </div>
         )}

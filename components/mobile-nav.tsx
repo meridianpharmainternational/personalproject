@@ -3,7 +3,7 @@
 import { useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Mail, MessageCircle, Phone, X } from "lucide-react";
+import { Mail, MessageCircle, Phone, ShoppingBag, X } from "lucide-react";
 import type { NavData } from "@/components/category-bar";
 import { SocialIcon } from "@/components/social-icon";
 import { useDialog } from "@/lib/use-dialog";
@@ -93,6 +93,11 @@ export function MobileNav({ nav, onClose }: { nav: NavData; onClose: () => void 
                 <Phone aria-hidden /> {contact.phone}
               </a>
             )}
+            {contact.phone2Href && (
+              <a className="btn btn-secondary btn-block" href={contact.phone2Href}>
+                <Phone aria-hidden /> {contact.phone2}
+              </a>
+            )}
             {wa && (
               <a className="btn btn-secondary btn-block" href={wa} target="_blank" rel="noopener noreferrer">
                 <MessageCircle aria-hidden /> WhatsApp
@@ -109,6 +114,9 @@ export function MobileNav({ nav, onClose }: { nav: NavData; onClose: () => void 
                 <SocialIcon name={s.name} /> {s.name}
               </a>
             ))}
+            <a className="btn btn-secondary btn-block" href={site.store.href} target="_blank" rel="noopener">
+              <ShoppingBag aria-hidden /> Order on our {site.store.name}
+            </a>
           </div>
           <div className="flex flex-wrap gap-2 px-5 pb-8">
             {site.certifications.map((c) => (
