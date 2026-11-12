@@ -299,15 +299,25 @@
   color:inherit; font-weight:500; text-decoration:none; white-space:nowrap; }
 .utility-link:first-child { padding-left:0; }
 .utility-link svg { width:18px; height:18px; flex:none; }
+/* Never squeezed below their content (they would overlap); narrow screens drop whole items instead. */
+.utility-link { flex:none; }
 .utility-mail { display:none; }
 .utility-hours { display:none; margin-left:auto; white-space:nowrap; color:var(--on-dark-subtle); }
-/* The email needs the room of a wide screen; from 1024px the hours fit beside the channels. */
+/* Both phone numbers show at every width (components/contact-bar.tsx); the rest gives way as the bar narrows.
+   Hidden-but-spoken pieces use the sr-only pattern, so screen readers still hear the full number and names. */
 @media (min-width:1024px) { .utility-hours { display:inline; } }
-@media (min-width:1280px) { .utility-mail { display:inline-flex; } }
-/* Phones: channel names become icons only (the labels stay for screen readers); under 360px the number too. */
-@media (max-width:639.98px) { .utility-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; } }
-@media (max-width:359.98px) { .utility-phone { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-  .utility-link:first-child { padding-left:.625rem; } }
+@media (min-width:1440px) { .utility-mail { display:inline-flex; } }
+/* Below 1024px the channel names become icons. */
+@media (max-width:1023.98px) { .utility-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; } }
+/* Phones: the "+91" is spoken, not shown; the numbers sit closer; Instagram and Facebook (in the footer and the
+   menu) step out below 480px, Telegram below 360px. */
+@media (max-width:639.98px) {
+  .utility-cc { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .utility-tel { gap:.3rem; padding-inline:.375rem; }
+  .utility-tel:first-child { padding-left:0; }
+}
+@media (max-width:479.98px) { .utility-ch-instagram, .utility-ch-facebook { display:none; } }
+@media (max-width:359.98px) { .utility-ch-telegram { display:none; } .utility-tel svg { display:none; } }
 .site-header { position:sticky; top:0; z-index:50; background:var(--canvas); border-bottom:1px solid var(--rule); transition:box-shadow var(--dur-2) var(--ease-out); }
 /* Page-change bar along the header's bottom edge (components/navigation-progress.tsx). Its width is set
    inline as it creeps towards 90%; it runs to 100% and fades once the new page is showing. */
@@ -353,10 +363,12 @@
   scroll-padding-bottom:52px;
   background:var(--canvas); border-radius:var(--r-2); box-shadow:var(--shadow-pop); animation:mr-pop 160ms var(--ease-out); }
 /* Tablet: the header search box is narrow and sits mid-row, so a right-anchored 36rem panel would spill
-   off the left edge. Span the page gutter instead. Safe as fixed: the utility bar is hidden below 1024px,
-   so the sticky header is always at y=0, and no header ancestor has a transform/filter/contain. */
+   off the left edge. Span the page gutter instead: the search box gives up being the panel's anchor, so the
+   panel hangs from the header row (.site-header-inner is positioned) whether or not the contact bar above
+   the header is still on screen. */
 @media (min-width:768px) and (max-width:1023.98px) {
-  .search > .search-panel { position:fixed; top:calc(var(--header-h) + 8px); left:var(--pad); right:var(--pad); width:auto; max-width:none; }
+  .search { position:static; }
+  .search > .search-panel { top:calc(100% + 8px); left:var(--pad); right:var(--pad); width:auto; max-width:none; }
 }
 .search-group { padding:.5rem 0; border-top:1px solid var(--rule); }
 .search-group:first-child { border-top:0; }

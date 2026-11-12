@@ -61,6 +61,8 @@ export default async function HomePage() {
   const telegram = site.social.find((s) => s.name === "Telegram");
   const reach: { kind: "Phone" | "WhatsApp" | "Telegram"; label: string; href: string; external?: boolean }[] = [];
   if (contact.phone && contact.phoneHref) reach.push({ kind: "Phone", label: contact.phone, href: contact.phoneHref });
+  if (contact.phone2 && contact.phone2Href)
+    reach.push({ kind: "Phone", label: contact.phone2, href: contact.phone2Href });
   if (wa) reach.push({ kind: "WhatsApp", label: "WhatsApp", href: wa, external: true });
   if (telegram) reach.push({ kind: "Telegram", label: "Telegram", href: telegram.href, external: true });
 
@@ -107,7 +109,7 @@ export default async function HomePage() {
                 <li className="hero-reach">
                   {reach.map((r) => (
                     <a
-                      key={r.kind}
+                      key={r.href}
                       className="hero-reach-link"
                       href={r.href}
                       {...(r.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
